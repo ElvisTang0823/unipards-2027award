@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>FRC Lower Third 控制台</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #121418; color: #e0e0e0; margin: 0; padding: 20px; }
+    h1 { color: #f5c518; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+    .section { background: #1a1d24; border: 1px solid #2d323e; border-radius: 6px; padding: 20px; margin-bottom: 25px; }
+    h2 { margin-top: 0; color: #4da6ff; font-size: 1.2rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #2d323e; }
+    th { background: #222733; color: #a0a5b5; font-size: 0.85rem; text-transform: uppercase; }
+    input { width: 95%; background: #0f1115; border: 1px solid #3a3f4d; color: #fff; padding: 8px; border-radius: 4px; font-size: 0.9rem; }
+    input:focus { border-color: #f5c518; outline: none; }
+    .btn-group { display: flex; gap: 6px; justify-content: flex-end; }
+    button { background: #2d323e; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+    button.btn-show { background: #28a745; }
+    button.btn-env { background: #d4af37; color: #000; }
+    button.btn-hide { background: #dc3545; }
+    button.btn-add { background: #007bff; margin-top: 10px; }
+    .global-actions { position: fixed; top: 20px; right: 20px; z-index: 100; }
+  </style>
+</head>
+<body>
+
+  <div class="global-actions">
+    <button class="btn-hide" style="padding: 12px 20px; font-size: 1rem;" onclick="clearOverlay()">🚨 緊急清空畫面</button>
+  </div>
+
+  <h1>FRC Lower Third 控制台</h1>
+
+  <!-- 1. 致詞嘉賓清單 -->
+  <div class="section">
+    <h2>致詞嘉賓列表 (Guests)</h2>
+    <table id="guestTable">
+      <thead>
+        <tr>
+          <th style="width: 30%;">單位 / 組織 (Org)</th>
+          <th style="width: 25%;">姓名 (Name)</th>
+          <th style="width: 25%;">職位 (Job Title - 可留空)</th>
+          <th style="width: 20%; text-align: right;">即時控制</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button class="btn-add" onclick="addGuestRow()">+ 新增嘉賓</button>
+  </div>
+
+  <!-- 2. 頒獎與隊伍清單 -->
+  <div class="section">
+    <h2>頒獎與得獎名單 (Awards)</h2>
+    <table id="awardTable">
+      <thead>
+        <tr>
+          <th style="width: 30%;">獎項名稱 (Award)</th>
+          <th style="width: 25%;">得獎隊號 (多個用空白隔開)</th>
+          <th style="width: 25%;">隊伍名稱</th>
+          <th style="width: 20%; text-align: right;">即時控制</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button class="btn-add" onclick="addAwardRow()">+ 新增獎項</button>
+  </div>
+
+  <script>
+    const socket = io();
+    let db = { guests: [], awards: [] };
+
+    async function init() {
+      const res = await fetch('/api/data');
+      db = await res.json();
+      renderTables();
+    }
+
+    function renderTables() {
+      const gBody = document.querySelector('#guestTable tbody');
+      gBody.innerHTML = db.guests.map((g, index) => `
+        <tr>
+          <td><input type="text" value="${g.org || ''}" placeholder="例: 國立成功大學" onchange="updateGuest(${index}, 'org', this.value)"></td>
+          <td><input type="text" value="${g.name || ''}" placeholder="例: 沈校長" onchange="updateGuest(${index}, 'name', this.value)"></td>
+          <td><input type="text" value="${g.jobTitle || ''}" placeholder="例: 校長 (可留空)" onchange="updateGuest(${index}, 'jobTitle', this.value)"></td>
+          <td style="text-align: right;">
+            <div class="btn-group">
+              <button class="btn-show" onclick="triggerGuest(${index})">顯示</button>
+              <button class="btn-hide" onclick="clearOverlay()">隱藏</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      const aBody = document.querySelector('#awardTable tbody');
+      aBody.innerHTML = db.awards.map((a, index) => `
+        <tr>
+          <td><input type="text" value="${a.name || ''}" onchange="updateAward(${index}, 'name', this.value)"></td>
+          <td><input type="text" value="${a.winnerTeams || ''}" placeholder="6998 7589" onchange="updateAward(${index}, 'winnerTeams', this.value)"></td>
+          <td><input type="text" value="${a.winnerName || ''}" onchange="updateAward(${index}, 'winnerName', this.value)"></td>
+          <td style="text-align: right;">
+            <div class="btn-group">
+              <button class="btn-env" onclick="triggerEnvelope(${index})">開信封</button>
+              <button class="btn-show" onclick="triggerAwardLowerThird(${index})">下底</button>
+              <button class="btn-hide" onclick="clearOverlay()">隱藏</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function saveData() {
+      await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(db)
+      });
+    }
+
+    function updateGuest(i, key, val) { db.guests[i][key] = val; saveData(); }
+    function updateAward(i, key, val) { db.awards[i][key] = val; saveData(); }
+
+    function addGuestRow() {
+      db.guests.push({ id: 'g_' + Date.now(), org: '', name: '新嘉賓', jobTitle: '' });
+      saveData(); renderTables();
+    }
+
+    function addAwardRow() {
+      db.awards.push({ id: 'a_' + Date.now(), name: '新獎項 Award', winnerTeams: '6998', winnerName: '隊名' });
+      saveData(); renderTables();
+    }
+
+    function triggerGuest(i) {
+      socket.emit('change_stage', { activeType: 'guest', stage: 'showing', payload: db.guests[i] });
+    }
+
+    function triggerEnvelope(i) {
+      socket.emit('change_stage', { activeType: 'award', stage: 'opening_envelope', payload: db.awards[i] });
+    }
+
+    function triggerAwardLowerThird(i) {
+      socket.emit('change_stage', { activeType: 'award', stage: 'showing_lower_third', payload: db.awards[i] });
+    }
+
+    function clearOverlay() {
+      socket.emit('change_stage', { activeType: 'none', stage: 'idle', payload: {} });
+    }
+
+    init();
+  </script>
+</body>
+</html>

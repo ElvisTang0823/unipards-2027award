@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>OBS Lower Third Overlay</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    /* 載入指定字型 */
+    @font-face {
+      font-family: 'GoldenBold';
+      src: url('/assets/Bold.ttf') format('truetype');
+      font-weight: bold;
+    }
+    @font-face {
+      font-family: 'GoldenLight';
+      src: url('/assets/Light.ttf') format('truetype');
+      font-weight: normal;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      width: 1920px; height: 1080px;
+      overflow: hidden;
+      background-color: rgba(0, 0, 0, 0);
+    }
+
+    /* 下方 Lower Third 置中定位 */
+    #lowerThirdWrapper {
+      position: absolute;
+      top: 810px;
+      left: 50%;
+      transform: translateX(-50%) translateY(40px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+    }
+
+    #ltBackground {
+      display: block;
+      height: 162px;
+      object-fit: contain;
+    }
+
+    #ltContent {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      padding: 0 60px;
+      display: flex;
+      align-items: center;
+    }
+
+    /* 嘉賓 Mode */
+    .guest-layout {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .guest-org {
+      font-family: 'GoldenLight', sans-serif;
+      font-size: 1.8rem;
+      color: #ffffff;
+      letter-spacing: 4px;
+      margin-bottom: 20px;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+    }
+
+    .guest-name-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .guest-name {
+      font-family: 'GoldenBold', sans-serif;
+      font-size: 3.4rem;
+      color: #ffffff;
+      letter-spacing: 3px;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, 0.9);
+    }
+
+    .guest-job {
+      font-family: 'GoldenLight', sans-serif;
+      font-size: 2rem;
+      color: #d0d0d0;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+    }
+
+    /* 頒獎 Lower Third Mode */
+    .award-layout {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .award-left {
+      width: 25%;
+      font-family: 'GoldenLight', sans-serif;
+      font-size: 2.2rem;
+      color: #ffffff;
+      letter-spacing: 4px;
+      padding-left: 20px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+      word-break: break-word;
+    }
+
+    .award-right {
+      width: 75%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-left: 30px;
+      border-left: 1px solid rgba(212, 175, 55, 0.3);
+    }
+
+    .award-winner-main {
+      font-family: 'GoldenBold', sans-serif;
+      font-size: 2.7rem;
+      color: #ffffff;
+      letter-spacing: 2px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 10px;
+    }
+
+    /* 全螢幕開信封卡片排版修正 */
+    #envelopeContainer {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.6);
+      width: 1100px;
+      min-height: 420px;
+      padding: 40px 60px;
+      background: rgba(15, 17, 21, 0.96);
+      border: 2px solid #d4af37;
+      box-shadow: 0 0 60px rgba(212, 175, 55, 0.35);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      color: #fff;
+      border-radius: 12px;
+      opacity: 0;
+    }
+
+    #envAwardName {
+      font-family: 'GoldenLight', sans-serif;
+      font-size: 2.5rem;
+      color: #d4af37;
+      letter-spacing: 3px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+      padding-bottom: 24px;
+      width: 100%;
+    }
+
+    #envelopeCard {
+      font-family: 'GoldenBold', sans-serif;
+      font-size: 3.2rem;
+      color: #ffffff;
+      letter-spacing: 2px;
+      line-height: 1.3;
+      word-break: break-word;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 全螢幕開信封 (Stage 1) -->
+  <div id="envelopeContainer">
+    <div id="envAwardName">獎項名稱</div>
+    <div id="envelopeCard">TEAM 0000</div>
+  </div>
+
+  <!-- 下方 Lower Third -->
+  <div id="lowerThirdWrapper">
+    <img id="ltBackground" src="/assets/lt-small.png" alt="Lower Third BG">
+    <div id="ltContent"></div>
+  </div>
+
+  <script>
+    const socket = io();
+
+    const wrapper = document.getElementById('lowerThirdWrapper');
+    const bgImg = document.getElementById('ltBackground');
+    const ltContent = document.getElementById('ltContent');
+
+    const envContainer = document.getElementById('envelopeContainer');
+    const envAwardName = document.getElementById('envAwardName');
+    const envCard = document.getElementById('envelopeCard');
+
+    let autoTransitionTimer = null;
+
+    function selectBgImage(str) {
+      const len = str.length;
+      if (len <= 15) {
+        bgImg.src = '/assets/lt-small.png';
+      } else if (len <= 30) {
+        bgImg.src = '/assets/lt-medium.png';
+      } else {
+        bgImg.src = '/assets/lt-large.png';
+      }
+    }
+
+    function showAwardLowerThird(payload) {
+      const awardName = payload.name || '獎項名稱';
+      const teams = payload.winnerTeams ? payload.winnerTeams.split(' ').join(' & Team ') : '';
+      const winnerMain = `Team ${teams}`;
+      const WinnerName = payload.winnerName || '';
+
+      selectBgImage(awardName + winnerMain);
+
+      ltContent.innerHTML = `
+        <div class="award-layout">
+          <div class="award-left">${awardName}</div>
+          <div class="award-right">
+            <div class="award-winner-main">${winnerMain}</div>
+            <div class="guest-job">${WinnerName}</div>
+          </div>
+        </div>
+      `;
+
+      // 隱藏信封，彈出下方字條
+      gsap.to(envContainer, { opacity: 0, scale: 0.8, duration: 0.4 });
+      gsap.to(wrapper, { opacity: 1, y: 0, duration: 0.6, delay: 0.2, ease: "back.out(1.2)" });
+    }
+
+    socket.on('update_state', (state) => {
+      // 清除舊有的定時器與動畫
+      if (autoTransitionTimer) {
+        clearTimeout(autoTransitionTimer);
+        autoTransitionTimer = null;
+      }
+      gsap.killTweensOf([wrapper, envContainer]);
+
+      if (state.activeType === 'none') {
+        gsap.to([wrapper, envContainer], { opacity: 0, y: 30, duration: 0.4 });
+        return;
+      }
+
+      // 1. 致詞嘉賓
+      if (state.activeType === 'guest') {
+        gsap.to(envContainer, { opacity: 0, duration: 0.3 });
+
+        const org = state.payload.org || '';
+        const name = state.payload.name || '';
+        const job = state.payload.jobTitle || '';
+
+        selectBgImage(org + name + job);
+
+        ltContent.innerHTML = `
+          <div class="guest-layout">
+            ${org ? `<div class="guest-org">${org}</div>` : ''}
+            <div class="guest-name-row">
+              <span class="guest-name">${name}</span>
+              ${job ? `<span class="guest-job">${job}</span>` : ''}
+            </div>
+          </div>
+        `;
+
+        gsap.to(wrapper, { opacity: 1, y: 0, duration: 0.6, ease: "back.out(1.2)" });
+      }
+
+      // 2. 開信封 (全螢幕卡片 2 秒後自動自動過渡至下方 Lower Third)
+      if (state.activeType === 'award' && state.stage === 'opening_envelope') {
+        gsap.to(wrapper, { opacity: 0, duration: 0.3 });
+
+        const teams = state.payload.winnerTeams ? state.payload.winnerTeams.split(' ').join(' & Team ') : '';
+        envAwardName.innerText = state.payload.name || '獎項名稱';
+        envCard.innerText = `Team ${teams}`;
+        envCard.style.fontSize = teams.length > 20 ? '3rem' : '3.2rem'; // 根據隊名長度調整字體大小
+
+        // 彈出信封卡片
+        gsap.fromTo(envContainer, 
+          { scale: 0.6, opacity: 0 }, 
+          { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.3)" }
+        );
+
+        // 設定 2000ms (2秒) 後自動執行下底字卡動畫
+        autoTransitionTimer = setTimeout(() => {
+          showAwardLowerThird(state.payload);
+        }, 1500);
+      }
+
+      // 3. 直接觸發下底字卡 (手動 Mode)
+      if (state.activeType === 'award' && state.stage === 'showing_lower_third') {
+        showAwardLowerThird(state.payload);
+      }
+    });
+  </script>
+</body>
+</html>

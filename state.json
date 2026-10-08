@@ -1,0 +1,10 @@
+{
+  "activeType": "guest",
+  "stage": "showing",
+  "payload": {
+    "id": "g1",
+    "org": "國立成功大學",
+    "name": "沈曉明",
+    "jobTitle": "校長"
+  }
+}
