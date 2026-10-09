@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>FRC Lower Third 控制台</title>
-  <script src="/socket.io/socket.io.js"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #121418; color: #e0e0e0; margin: 0; padding: 20px; }
     h1 { color: #f5c518; margin-top: 56px; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
@@ -26,6 +25,8 @@
     .ticker-row button { background: #dc3545; }
     .ticker-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .global-actions { position: fixed; top: 20px; left: 20px; z-index: 100; display: flex; gap: 8px; }
+    button.btn-backup { background: #d4af37; color: #111; padding: 12px 16px; font-size: 1rem; }
+    @media (max-width: 720px) { .global-actions { left: 8px; top: 8px; } h1 { margin-top: 70px; } }
   </style>
 </head>
 <body>
@@ -33,6 +34,9 @@
   <div class="global-actions">
     <button class="btn-hide" style="padding: 12px 20px; font-size: 1rem;" onclick="clearOverlay()">🚨 緊急清空畫面</button>
     <button class="btn-hide" style="padding: 12px 20px; font-size: 1rem;" onclick="hideTicker()">隱藏跑馬燈</button>
+    <button class="btn-backup" type="button" onclick="saveNow()">儲存資料</button>
+    <button class="btn-backup" type="button" onclick="saveBackup()">儲存備份</button>
+    <span id="saveStatus" role="status" aria-live="polite"></span>
   </div>
 
   <h1>FRC Lower Third 控制台</h1>
@@ -60,10 +64,10 @@
     <table id="awardTable">
       <thead>
         <tr>
-          <th style="width: 30%;">獎項名稱</th>
-          <th style="width: 25%;">得獎隊號 (用空白隔開數字)</th>
-          <th style="width: 25%;">隊伍名稱</th>
-          <th style="width: 20%; text-align: right;">即時控制</th>
+          <th style="width: 24%;">獎項名稱</th>
+          <th style="width: 20%;">得獎隊號</th>
+          <th style="width: 24%;">隊伍名稱 (要寫·)</th>
+          <th style="width: 32%; text-align: right;">即時控制</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -82,8 +86,23 @@
   </div>
 
   <script>
-    const socket = io();
+    const pendingMessages = [];
     let db = { guests: [], awards: [], tickerLines: [''] };
+    let socket;
+
+    function connectSocket() {
+      socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
+      socket.addEventListener('open', () => {
+        while (pendingMessages.length) socket.send(JSON.stringify(pendingMessages.shift()));
+      });
+      socket.addEventListener('close', () => window.setTimeout(connectSocket, 1000));
+    }
+    connectSocket();
+
+    function sendMessage(message) {
+      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+      else pendingMessages.push(message);
+    }
 
     async function init() {
       const res = await fetch('/api/data');
@@ -127,11 +146,38 @@
     }
 
     async function saveData() {
-      await fetch('/api/data', {
+      const response = await fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(db)
       });
+      if (!response.ok) throw new Error('資料儲存失敗');
+      document.getElementById('saveStatus').textContent = '變更暫存於伺服器記憶體';
+    }
+
+    async function saveNow() {
+      const status = document.getElementById('saveStatus');
+      try {
+        await saveData();
+        const response = await fetch('/api/save', { method: 'POST' });
+        if (!response.ok) throw new Error('無法寫入 data.json');
+        status.textContent = '資料已儲存';
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    }
+
+    async function saveBackup() {
+      const status = document.getElementById('saveStatus');
+      try {
+        await saveData();
+        const response = await fetch('/api/backup', { method: 'POST' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || '備份失敗');
+        status.textContent = `已建立備份 ${result.filename}`;
+      } catch (error) {
+        status.textContent = error.message;
+      }
     }
 
     function updateGuest(i, key, val) { db.guests[i][key] = val; saveData(); }
@@ -179,11 +225,11 @@
     }
 
     function showTicker() {
-      socket.emit('set_ticker', { lines: db.tickerLines });
+      sendMessage({ e: 'k', v: 1 });
     }
 
     function hideTicker() {
-      socket.emit('hide_ticker');
+      sendMessage({ e: 'k', v: 0 });
     }
 
     function addGuestRow() {
@@ -197,19 +243,19 @@
     }
 
     function triggerGuest(i) {
-      socket.emit('change_stage', { activeType: 'guest', stage: 'showing', payload: db.guests[i] });
+      sendMessage({ e: 't', t: 'g', i: String(db.guests[i].id) });
     }
 
     function triggerEnvelope(i) {
-      socket.emit('change_stage', { activeType: 'award', stage: 'opening_envelope', payload: db.awards[i] });
+      sendMessage({ e: 't', t: 'a', i: String(db.awards[i].id), s: 'oe' });
     }
 
     function triggerAwardLowerThird(i) {
-      socket.emit('change_stage', { activeType: 'award', stage: 'showing_lower_third', payload: db.awards[i] });
+      sendMessage({ e: 't', t: 'a', i: String(db.awards[i].id), s: 'sl' });
     }
 
     function clearOverlay() {
-      socket.emit('change_stage', { activeType: 'none', stage: 'idle', payload: {} });
+      sendMessage({ e: 't', t: 'n' });
     }
 
     init();

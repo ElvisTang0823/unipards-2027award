@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111410">
+  <title>司儀流程 | NKS Award</title>
+  <style>
+    :root { color-scheme: dark; --bg: #111410; --panel: #1b2019; --line: #414735; --gold: #e4bd57; --text: #f3f0e6; --muted: #b4b6a9; --green: #a8f0ae; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); background: radial-gradient(ellipse at 85% 0%, #393820 0, transparent 42%), var(--bg); font-family: "Aptos", "Microsoft JhengHei", sans-serif; }
+    header { padding: 22px clamp(16px, 4vw, 54px) 16px; border-bottom: 1px solid var(--line); }
+    .eyebrow { color: var(--gold); font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+    h1 { margin: 6px 0 0; font-size: clamp(24px, 3vw, 34px); }
+    main { max-width: 1200px; margin: auto; padding: 22px clamp(16px, 4vw, 54px) 60px; }
+    #pgm { margin-bottom: 26px; padding: 18px 20px; border: 1px solid #627c60; border-left: 5px solid #8ddd8a; background: linear-gradient(105deg, #1e3522, #1b2019 72%); }
+    #pgm .status { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+    #pgm .status.is-active { color: var(--green); }
+    #pgm h2 { margin: 6px 0; font-size: 24px; }
+    #pgm p { margin: 4px 0 0; color: #d8e2d2; }
+    .section-heading { display: flex; align-items: baseline; gap: 12px; margin: 28px 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 9px; }
+    .section-heading h2 { margin: 0; font-size: 19px; color: var(--gold); }
+    .section-heading span { color: var(--muted); font-size: 13px; }
+    .flow-list { display: grid; gap: 10px; }
+    article { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 0.72fr); gap: 20px; padding: 16px; border: 1px solid var(--line); background: rgba(27, 32, 25, .88); }
+    article.is-live { border-color: #82ce83; box-shadow: inset 4px 0 #82ce83; }
+    .item-type { color: var(--muted); font-size: 12px; }
+    .item-title { margin: 4px 0; font-size: 20px; overflow-wrap: anywhere; }
+    .item-detail { margin: 0; color: #d0d2c7; overflow-wrap: anywhere; }
+    .note-label { display: grid; gap: 6px; color: var(--gold); font-size: 12px; font-weight: 700; }
+    textarea { width: 100%; min-height: 72px; resize: vertical; padding: 9px 10px; border: 1px solid #555b49; border-radius: 2px; background: #121510; color: var(--text); font: inherit; font-size: 14px; }
+    textarea:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+    #empty { color: var(--muted); padding: 18px 0; }
+    @media (max-width: 680px) { article { grid-template-columns: 1fr; gap: 12px; } main { padding-top: 16px; } #pgm { padding: 14px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">NKS Award · Stage Companion</div>
+    <h1>司儀流程</h1>
+  </header>
+  <main>
+    <section id="pgm" aria-live="polite">
+      <div class="status" id="liveBadge">PGM 待命</div>
+      <h2 id="liveTitle">目前沒有字卡</h2>
+      <p id="liveDetail">等待導播發送</p>
+    </section>
+    <section aria-labelledby="guestHeading">
+      <div class="section-heading"><h2 id="guestHeading">致詞嘉賓</h2><span>依清單順序</span></div>
+      <div class="flow-list" id="guestList"></div>
+    </section>
+    <section aria-labelledby="awardHeading">
+      <div class="section-heading"><h2 id="awardHeading">頒獎流程</h2><span>得獎名單與個人備註</span></div>
+      <div class="flow-list" id="awardList"></div>
+    </section>
+    <p id="empty" hidden>目前尚無流程資料。</p>
+  </main>
+  <script>
+    const liveTitle = document.getElementById('liveTitle');
+    const liveDetail = document.getElementById('liveDetail');
+    let data = { guests: [], awards: [] };
+    let liveState = { activeType: 'none', stage: 'idle', payload: {} };
+    let compactState = { t: 'n', i: '', s: 'idle' };
+
+    function makeNote(item, type) {
+      const label = document.createElement('label');
+      label.className = 'note-label';
+      label.append(document.createTextNode('現場筆記 · 發音 / 提醒 / 致謝'));
+      const note = document.createElement('textarea');
+      const storageKey = `nks-mc-note:${type}:${item.id || item.name || item.org}`;
+      note.value = localStorage.getItem(storageKey) || '';
+      note.placeholder = '僅保存在這台裝置的瀏覽器';
+      note.addEventListener('input', () => localStorage.setItem(storageKey, note.value));
+      label.append(note);
+      return label;
+    }
+
+    function makeCard(item, type, detail) {
+      const card = document.createElement('article');
+      const isLive = liveState.activeType === type && liveState.payload?.id === item.id;
+      if (isLive) card.classList.add('is-live');
+      const info = document.createElement('div');
+      const badge = document.createElement('div');
+      badge.className = 'item-type';
+      badge.textContent = isLive ? '目前正在大螢幕顯示' : (type === 'guest' ? '致詞嘉賓' : '獎項');
+      const title = document.createElement('h3');
+      title.className = 'item-title';
+      title.textContent = type === 'guest' ? (item.name || '未命名嘉賓') : (item.name || '未命名獎項');
+      const subtitle = document.createElement('p');
+      subtitle.className = 'item-detail';
+      subtitle.textContent = detail;
+      info.append(badge, title, subtitle);
+      card.append(info, makeNote(item, type));
+      return card;
+    }
+
+    function render() {
+      const guestList = document.getElementById('guestList');
+      const awardList = document.getElementById('awardList');
+      guestList.replaceChildren();
+      awardList.replaceChildren();
+      (data.guests || []).forEach((guest) => {
+        guestList.append(makeCard(guest, 'guest', [guest.org, guest.jobTitle].filter(Boolean).join(' · ')));
+      });
+      (data.awards || []).forEach((award) => {
+        const teams = String(award.winnerTeams || '').trim().split(/\s+/).filter(Boolean).map((team) => `Team ${team}`).join(' · ');
+        awardList.append(makeCard(award, 'award', [teams, award.winnerName].filter(Boolean).join(' · ')));
+      });
+      document.getElementById('empty').hidden = Boolean(guestList.childElementCount || awardList.childElementCount);
+    }
+
+    function renderLiveState(state) {
+      liveState = state || { activeType: 'none', stage: 'idle', payload: {} };
+      const isActive = liveState.activeType !== 'none';
+      const liveBadge = document.getElementById('liveBadge');
+      liveBadge.textContent = isActive ? 'PGM LIVE · 正在播出' : 'PGM 待命';
+      liveBadge.classList.toggle('is-active', isActive);
+      if (liveState.activeType === 'guest') {
+        liveTitle.textContent = liveState.payload.name || '致詞嘉賓';
+        liveDetail.textContent = [liveState.payload.org, liveState.payload.jobTitle].filter(Boolean).join(' · ');
+      } else if (liveState.activeType === 'award') {
+        liveTitle.textContent = liveState.payload.name || '頒獎流程';
+        const teams = String(liveState.payload.winnerTeams || '').trim().split(/\s+/).filter(Boolean).map((team) => `Team ${team}`).join(' · ');
+        liveDetail.textContent = `${liveState.stage === 'opening_envelope' ? '開信封' : '下底字卡'}${teams ? ` · ${teams}` : ''}`;
+      } else {
+        liveTitle.textContent = '目前沒有字卡';
+        liveDetail.textContent = '等待導播發送';
+      }
+      render();
+    }
+
+    function renderCompactState(message) {
+      compactState = message;
+      const activeType = message.t === 'g' ? 'guest' : message.t === 'a' ? 'award' : 'none';
+      const items = activeType === 'guest' ? data.guests : activeType === 'award' ? data.awards : [];
+      const payload = items.find((item) => String(item.id) === String(message.i)) || {};
+      const stage = message.s === 'oe' ? 'opening_envelope' : message.s === 'sl' ? 'showing_lower_third' : message.s;
+      renderLiveState({ activeType, stage, payload });
+    }
+
+    async function loadData() {
+      try {
+        const response = await fetch('/api/data', { cache: 'no-store' });
+        if (!response.ok) throw new Error('資料讀取失敗');
+        data = await response.json();
+        render();
+        renderCompactState(compactState);
+      } catch (error) {
+        liveDetail.textContent = '流程資料暫時無法載入';
+      }
+    }
+
+    function connectSocket() {
+      const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
+      socket.addEventListener('message', (event) => {
+        let message;
+        try {
+          message = JSON.parse(event.data);
+        } catch (error) {
+          return;
+        }
+        if (message.e === 's') renderCompactState(message);
+        if (message.e === 'd') {
+          data = message.d;
+          render();
+          renderCompactState(compactState);
+        }
+      });
+      socket.addEventListener('close', () => window.setTimeout(connectSocket, 1000));
+    }
+    connectSocket();
+    loadData();
+  </script>
+</body>
+</html>

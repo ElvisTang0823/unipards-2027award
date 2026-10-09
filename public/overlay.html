@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
   <meta charset="UTF-8">
   <title>OBS Lower Third Overlay</title>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
   <style>
     /* 載入指定字型 */
     @font-face {
@@ -12,18 +11,54 @@
       src: url('/assets/Bold.ttf') format('truetype');
       font-weight: bold;
     }
+
     @font-face {
       font-family: 'GoldenLight';
       src: url('/assets/Light.ttf') format('truetype');
       font-weight: normal;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      margin: 0; padding: 0;
-      width: 1920px; height: 1080px;
+      margin: 0;
+      padding: 0;
+      width: 1920px;
+      height: 1080px;
       overflow: hidden;
       background-color: rgba(0, 0, 0, 0);
+    }
+
+    #ltContent {
+      isolation: isolate;
+    }
+
+    #lowerThirdWrapper,
+    #envelopeContainer {
+      z-index: 2;
+      will-change: transform, opacity;
+    }
+
+    .award-team-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      flex: none;
+      white-space: nowrap;
+    }
+
+    .award-team-logo {
+      width: 60px;
+      height: 60px;
+      flex: none;
+      object-fit: contain;
+    }
+
+    .award-team-separator {
+      margin: 0 10px;
+      color: #d0d0d0;
     }
 
     /* 下方 Lower Third 置中定位 */
@@ -35,27 +70,45 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      width: fit-content;
+      max-width: calc(100vw - 120px);
+      min-height: 162px;
       opacity: 0;
+      transition: opacity 350ms ease, transform 450ms cubic-bezier(.2,.8,.2,1);
+    }
+
+    #lowerThirdWrapper.is-visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
     }
 
     #ltBackground {
-      display: block;
-      height: 162px;
-      object-fit: contain;
+      position: absolute;
+      inset: 0;
+      border: 7px solid transparent;
+      border-radius: 8px;
+      background:
+        linear-gradient(110deg, #ff6666 0%, #6666ff 100%) padding-box,
+        linear-gradient(135deg, #fff2a6 0%, #b8860b 18%, #f7dc78 34%, #8f6b16 52%, #fff0a0 70%, #a87913 86%, #f4d76e 100%) border-box;
+      box-shadow: inset 0 0 12px rgba(255, 255, 255, .1);
+      pointer-events: none;
     }
 
     #ltContent {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      padding: 0 60px;
+      position: relative;
+      width: max-content;
+      max-width: 100%;
+      min-height: 162px;
+      padding: 0 54px;
       display: flex;
       align-items: center;
+      overflow: visible;
     }
 
     /* 嘉賓 Mode */
     .guest-layout {
-      width: 100%;
+      width: max-content;
+      max-width: 100%;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -68,7 +121,12 @@
       font-size: 1.8rem;
       color: #ffffff;
       letter-spacing: 4px;
-      margin-bottom: 20px;
+      margin: -8px 0 12px;
+      padding: 8px 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
     }
 
@@ -76,7 +134,10 @@
       display: flex;
       align-items: baseline;
       justify-content: center;
+      width: max-content;
+      max-width: 100%;
       gap: 16px;
+      white-space: nowrap;
     }
 
     .guest-name {
@@ -84,6 +145,7 @@
       font-size: 3.4rem;
       color: #ffffff;
       letter-spacing: 3px;
+      white-space: nowrap;
       text-shadow: 0 3px 10px rgba(0, 0, 0, 0.9);
     }
 
@@ -92,53 +154,87 @@
       font-size: 2rem;
       color: #d0d0d0;
       letter-spacing: 1px;
-      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+      white-space: nowrap;
     }
 
     /* 頒獎 Lower Third Mode */
     .award-layout {
-      width: 100%;
+      width: max-content;
+      max-width: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 24px;
     }
 
     .award-left {
-      width: 25%;
+      flex: 0 0 auto;
+      max-width: 35%;
       font-family: 'GoldenLight', sans-serif;
       font-size: 2.2rem;
       color: #ffffff;
       letter-spacing: 4px;
       padding-left: 20px;
       text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
-      word-break: break-word;
+      white-space: nowrap;
     }
 
     .award-right {
-      width: 75%;
+      flex: 0 1 auto;
+      width: max-content;
+      max-width: 100%;
       display: flex;
       flex-direction: column;
       justify-content: center;
       padding-left: 30px;
+      overflow: visible;
       border-left: 1px solid rgba(212, 175, 55, 0.3);
     }
 
     .award-winner-main {
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      width: max-content;
+      max-width: 100%;
+      overflow: visible;
       font-family: 'GoldenBold', sans-serif;
       font-size: 2.7rem;
       color: #ffffff;
       letter-spacing: 2px;
-      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
       margin-bottom: 10px;
+    }
+
+    .envelope-team-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+
+    .envelope-team-row .award-team-logo {
+      width: 60px;
+      height: 60px;
+    }
+
+    .envelope-team-row .award-team-item {
+      font-size: 3.2rem;
+    }
+
+    .guest-org,
+    .guest-job,
+    .award-left,
+    .award-winner-main {
+      overflow-wrap: normal;
+      word-break: keep-all;
     }
 
     /* 全螢幕開信封卡片排版修正 */
     #envelopeContainer {
       position: absolute;
-      top: 50%; left: 50%;
+      top: 50%;
+      left: 50%;
       transform: translate(-50%, -50%) scale(0.6);
       width: 1100px;
       min-height: 420px;
@@ -154,6 +250,12 @@
       color: #fff;
       border-radius: 12px;
       opacity: 0;
+      transition: opacity 450ms ease, transform 550ms cubic-bezier(.2,.8,.2,1);
+    }
+
+    #envelopeContainer.is-visible {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
     }
 
     #envAwardName {
@@ -195,9 +297,17 @@
       transition: opacity 400ms ease;
     }
 
-    #tickerBar.where-up { top: 0; }
-    #tickerBar.where-down { bottom: 0; }
-    #tickerBar.is-visible { opacity: 1; }
+    #tickerBar.where-up {
+      top: 0;
+    }
+
+    #tickerBar.where-down {
+      bottom: 0;
+    }
+
+    #tickerBar.is-visible {
+      opacity: 1;
+    }
 
     #tickerTrack {
       display: flex;
@@ -205,35 +315,42 @@
       animation: ticker-scroll 30s linear infinite;
     }
 
-    .ticker-copy { flex: none; }
+    .ticker-copy {
+      flex: none;
+    }
 
     @keyframes ticker-scroll {
-      from { transform: translateX(0); }
-      to { transform: translateX(-50%); }
+      from {
+        transform: translateX(0);
+      }
+
+      to {
+        transform: translateX(-50%);
+      }
     }
   </style>
 </head>
+
 <body>
 
   <!-- 全螢幕開信封 (Stage 1) -->
   <div id="envelopeContainer">
     <div id="envAwardName">獎項名稱</div>
-    <div id="envelopeCard">TEAM 0000</div>
+    <div id="envelopeCard">FRC0000</div>
   </div>
 
   <!-- 下方 Lower Third -->
   <div id="lowerThirdWrapper">
-    <img id="ltBackground" src="/assets/lt-small.png" alt="Lower Third BG">
+    <div id="ltBackground" aria-hidden="true"></div>
     <div id="ltContent"></div>
   </div>
 
-  <div id="tickerBar" aria-live="polite"><div id="tickerTrack"></div></div>
+  <div id="tickerBar" aria-live="polite">
+    <div id="tickerTrack"></div>
+  </div>
 
   <script>
-    const socket = io();
-
     const wrapper = document.getElementById('lowerThirdWrapper');
-    const bgImg = document.getElementById('ltBackground');
     const ltContent = document.getElementById('ltContent');
 
     const envContainer = document.getElementById('envelopeContainer');
@@ -246,6 +363,51 @@
     let autoTransitionTimer = null;
     let currentLowerThirdContent = null;
     let lowerThirdTransitionId = 0;
+    let data = { guests: [], awards: [], tickerLines: [] };
+    let compactState = { t: 'n', i: '', s: 'idle' };
+    let tickerVisible = false;
+
+    function renderCompactState(message) {
+      compactState = message;
+      const activeType = message.t === 'g' ? 'guest' : message.t === 'a' ? 'award' : 'none';
+      const items = activeType === 'guest' ? data.guests : activeType === 'award' ? data.awards : [];
+      const payload = items.find((item) => String(item.id) === String(message.i)) || {};
+      const stage = message.s === 'oe' ? 'opening_envelope' : message.s === 'sl' ? 'showing_lower_third' : message.s;
+      renderState({ activeType, stage, payload });
+    }
+
+    function connectSocket() {
+      const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
+      socket.addEventListener('message', (event) => {
+        let message;
+        try {
+          message = JSON.parse(event.data);
+        } catch (error) {
+          return;
+        }
+        if (message.e === 's') renderCompactState(message);
+        if (message.e === 'k') {
+          tickerVisible = message.v === 1;
+          updateTicker({ visible: tickerVisible, lines: data.tickerLines });
+        }
+        if (message.e === 'd') {
+          data = message.d;
+          updateTicker({ visible: tickerVisible, lines: data.tickerLines });
+          renderCompactState(compactState);
+        }
+      });
+      socket.addEventListener('close', () => window.setTimeout(connectSocket, 1000));
+    }
+    connectSocket();
+
+    fetch('/api/data', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((loadedData) => {
+        data = loadedData;
+        updateTicker({ visible: tickerVisible, lines: data.tickerLines });
+        renderCompactState(compactState);
+      })
+      .catch(() => {});
 
     function updateTicker(ticker) {
       tickerBar.className = `where-${tickerWhere}`;
@@ -281,135 +443,136 @@
       }
     }
 
-    socket.on('update_ticker', updateTicker);
-
-    function getBgImageSource(str) {
-      const len = str.length;
-      if (len <= 15) {
-        return '/assets/lt-small.png';
-      }
-      return len <= 30 ? '/assets/lt-medium.png' : '/assets/lt-large.png';
-    }
-
-    function updateLowerThird(content, backgroundText) {
-      if (currentLowerThirdContent === content) return;
-      currentLowerThirdContent = content;
-      gsap.killTweensOf(wrapper);
+    function updateLowerThird(content, signature) {
+      if (currentLowerThirdContent === signature) return;
+      currentLowerThirdContent = signature;
       const transitionId = ++lowerThirdTransitionId;
-      const imageSource = getBgImageSource(backgroundText);
-      const preloadImage = new Image();
-      const isVisible = Number(gsap.getProperty(wrapper, 'opacity')) > 0.01;
-      let backgroundReady = false;
-      let fadeOutReady = !isVisible;
-
       const showNewContent = () => {
-        if (!backgroundReady || !fadeOutReady || transitionId !== lowerThirdTransitionId) return;
-        bgImg.src = imageSource;
-        ltContent.innerHTML = content;
-        gsap.to(wrapper, {
-          opacity: 1,
-          y: 0,
-          duration: isVisible ? 0.4 : 0.6,
-          ease: isVisible ? 'power1.out' : 'back.out(1.2)'
-        });
+        if (transitionId !== lowerThirdTransitionId) return;
+        ltContent.replaceChildren(content);
+        requestAnimationFrame(() => wrapper.classList.add('is-visible'));
       };
 
-      preloadImage.onload = () => {
-        backgroundReady = true;
+      if (wrapper.classList.contains('is-visible')) {
+        wrapper.classList.remove('is-visible');
+        window.setTimeout(showNewContent, 220);
+      } else {
         showNewContent();
-      };
-      preloadImage.onerror = () => {
-        backgroundReady = true;
-        showNewContent();
-      };
-      preloadImage.src = imageSource;
-      if (preloadImage.complete) backgroundReady = true;
-
-      if (isVisible) {
-        gsap.to(wrapper, {
-          opacity: 0,
-          duration: 0.25,
-          onComplete: () => {
-            fadeOutReady = true;
-            showNewContent();
-          }
-        });
       }
-      showNewContent();
     }
 
     function showAwardLowerThird(payload) {
       const awardName = payload.name || '獎項名稱';
-      const teams = payload.winnerTeams ? payload.winnerTeams.split(' ').join(' & Team ') : '';
-      const winnerMain = `Team ${teams}`;
-      const WinnerName = payload.winnerName || '';
+      const teamIds = String(payload.winnerTeams || '').trim().split(/\s+/).filter(Boolean);
+      const layout = document.createElement('div');
+      layout.className = 'award-layout';
+      const left = document.createElement('div');
+      left.className = 'award-left';
+      left.textContent = awardName;
+      const right = document.createElement('div');
+      right.className = 'award-right';
+      const winner = createTeamDisplay(teamIds, 'award-winner-main');
+      const winnerName = document.createElement('div');
+      winnerName.className = 'guest-job';
+      winnerName.textContent = payload.winnerName || '';
+      right.append(winner, winnerName);
+      layout.append(left, right);
 
-      updateLowerThird(`
-        <div class="award-layout">
-          <div class="award-left">${awardName}</div>
-          <div class="award-right">
-            <div class="award-winner-main">${winnerMain}</div>
-            <div class="guest-job">${WinnerName}</div>
-          </div>
-        </div>
-      `, awardName + winnerMain);
+      updateLowerThird(layout, `award:${JSON.stringify([payload.id, awardName, teamIds, payload.winnerName])}`);
 
       // 隱藏信封，彈出下方字條
-      gsap.to(envContainer, { opacity: 0, scale: 0.8, duration: 0.4 });
+      envContainer.classList.remove('is-visible');
     }
 
-    socket.on('update_state', (state) => {
+    function createTeamDisplay(teamIds, className) {
+      const container = document.createElement('div');
+      container.className = className;
+      const validTeamIds = teamIds.filter((teamId) => /^[A-Za-z0-9_-]+$/.test(teamId));
+      validTeamIds.forEach((teamId, index) => {
+        if (index > 0) {
+          const separator = document.createElement('span');
+          separator.className = 'award-team-separator';
+          separator.textContent = '·';
+          container.append(separator);
+        }
+
+        const team = document.createElement('span');
+        team.className = 'award-team-item';
+        const logo = document.createElement('img');
+        logo.className = 'award-team-logo';
+        logo.alt = '';
+        logo.src = `/assets/logos/${encodeURIComponent(teamId)}.png`;
+        logo.addEventListener('error', () => {
+          logo.onerror = null;
+          logo.src = '/assets/logos/0.png';
+        }, { once: true });
+        const label = document.createElement('span');
+        label.textContent = `FRC${teamId}`;
+        team.append(logo, label);
+        container.append(team);
+      });
+      return container;
+    }
+
+    function renderState(state) {
       // 清除舊有的定時器與動畫
       if (autoTransitionTimer) {
         clearTimeout(autoTransitionTimer);
         autoTransitionTimer = null;
       }
-      gsap.killTweensOf(envContainer);
-
       if (state.activeType === 'none') {
         currentLowerThirdContent = null;
         lowerThirdTransitionId += 1;
-        gsap.killTweensOf(wrapper);
-        gsap.to([wrapper, envContainer], { opacity: 0, y: 30, duration: 0.4 });
+        wrapper.classList.remove('is-visible');
+        envContainer.classList.remove('is-visible');
         return;
       }
 
       // 1. 致詞嘉賓
       if (state.activeType === 'guest') {
-        gsap.to(envContainer, { opacity: 0, duration: 0.3 });
+        envContainer.classList.remove('is-visible');
 
         const org = state.payload.org || '';
         const name = state.payload.name || '';
         const job = state.payload.jobTitle || '';
 
-        updateLowerThird(`
-          <div class="guest-layout">
-            ${org ? `<div class="guest-org">${org}</div>` : ''}
-            <div class="guest-name-row">
-              <span class="guest-name">${name}</span>
-              ${job ? `<span class="guest-job">${job}</span>` : ''}
-            </div>
-          </div>
-        `, org + name + job);
+        const layout = document.createElement('div');
+        layout.className = 'guest-layout';
+        if (org) {
+          const organization = document.createElement('div');
+          organization.className = 'guest-org';
+          organization.textContent = org;
+          layout.append(organization);
+        }
+        const nameRow = document.createElement('div');
+        nameRow.className = 'guest-name-row';
+        const guestName = document.createElement('span');
+        guestName.className = 'guest-name';
+        guestName.textContent = name;
+        nameRow.append(guestName);
+        if (job) {
+          const jobTitle = document.createElement('span');
+          jobTitle.className = 'guest-job';
+          jobTitle.textContent = job;
+          nameRow.append(jobTitle);
+        }
+        layout.append(nameRow);
+        updateLowerThird(layout, `guest:${JSON.stringify([state.payload.id, org, name, job])}`);
       }
 
       // 2. 開信封 (全螢幕卡片 2 秒後自動自動過渡至下方 Lower Third)
       if (state.activeType === 'award' && state.stage === 'opening_envelope') {
         currentLowerThirdContent = null;
         lowerThirdTransitionId += 1;
-        gsap.killTweensOf(wrapper);
-        gsap.to(wrapper, { opacity: 0, duration: 0.3 });
+        wrapper.classList.remove('is-visible');
 
-        const teams = state.payload.winnerTeams ? state.payload.winnerTeams.split(' ').join(' & Team ') : '';
+        const teamIds = String(state.payload.winnerTeams || '').trim().split(/\s+/).filter(Boolean);
         envAwardName.innerText = state.payload.name || '獎項名稱';
-        envCard.innerText = `Team ${teams}`;
-        envCard.style.fontSize = teams.length > 20 ? '3rem' : '3.2rem'; // 根據隊名長度調整字體大小
+        envCard.replaceChildren(createTeamDisplay(teamIds, 'envelope-team-row'));
+        envCard.style.fontSize = teamIds.length > 2 ? '3rem' : '3.2rem';
 
-        // 彈出信封卡片
-        gsap.fromTo(envContainer, 
-          { scale: 0.6, opacity: 0 }, 
-          { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.3)" }
-        );
+        envContainer.classList.remove('is-visible');
+        requestAnimationFrame(() => envContainer.classList.add('is-visible'));
 
         // 設定 2000ms (2秒) 後自動執行下底字卡動畫
         autoTransitionTimer = setTimeout(() => {
@@ -421,7 +584,8 @@
       if (state.activeType === 'award' && state.stage === 'showing_lower_third') {
         showAwardLowerThird(state.payload);
       }
-    });
+    }
   </script>
 </body>
+
 </html>

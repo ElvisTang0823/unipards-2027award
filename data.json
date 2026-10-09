@@ -3,7 +3,7 @@
     {
       "id": "g1",
       "org": "國立南科國際實驗高級中學",
-      "name": "蔡",
+      "name": "蔡汶宏",
       "jobTitle": "老師"
     },
     {
@@ -11,6 +11,12 @@
       "org": "FIRST Taiwan",
       "name": "陳曉明王曉明明明哈哈哈哈哈",
       "jobTitle": "競賽總監"
+    },
+    {
+      "id": "g_1791523582019",
+      "org": "成功大學",
+      "name": "一二三",
+      "jobTitle": "笑長"
     }
   ],
   "awards": [
@@ -18,7 +24,13 @@
       "id": "a1",
       "name": "冠軍聯盟",
       "winnerTeams": "6998 7589 8020",
-      "winnerName": ""
+      "winnerName": "UNIPARDS  UNIPARDS UNIPARDS"
+    },
+    {
+      "id": "a_1791523510410",
+      "name": "單一隊伍獎",
+      "winnerTeams": "6998",
+      "winnerName": "隊名哈哈"
     }
   ],
   "tickerLines": [
