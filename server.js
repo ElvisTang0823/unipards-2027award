@@ -13,6 +13,18 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'data.json');
+const STATE_FILE = path.join(__dirname, 'state.json');
+
+function loadSavedState() {
+  try {
+    const savedState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    return savedState && typeof savedState === 'object' ? savedState : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+const savedState = loadSavedState();
 
 // 解析 JSON 請求與靜態資源
 app.use(express.json());
@@ -45,18 +57,52 @@ app.post('/api/data', (req, res) => {
   }
 });
 
-// 記錄目前疊圖狀態
-let currentState = { activeType: 'none', stage: 'idle', payload: {} };
+// 記錄並持久化目前疊圖狀態
+let currentState = {
+  activeType: savedState.activeType || 'none',
+  stage: savedState.stage || 'idle',
+  payload: savedState.payload && typeof savedState.payload === 'object' ? savedState.payload : {}
+};
+let currentTicker = savedState.ticker && typeof savedState.ticker === 'object'
+  ? savedState.ticker
+  : { visible: false, lines: [] };
+
+function persistDisplayState() {
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ ...currentState, ticker: currentTicker }, null, 2));
+  } catch (err) {
+    console.error('Failed to save display state:', err);
+  }
+}
 
 // Socket.IO 即時通訊
 io.on('connection', (socket) => {
   // 連線成功時即時同步現有狀態
   socket.emit('update_state', currentState);
+  socket.emit('update_ticker', currentTicker);
 
   // 接收控制台切換指令並廣播給 overlay
   socket.on('change_stage', (state) => {
     currentState = state;
+    persistDisplayState();
     io.emit('update_state', currentState);
+  });
+
+  socket.on('set_ticker', (ticker) => {
+    currentTicker = {
+      visible: true,
+      lines: Array.isArray(ticker.lines)
+        ? ticker.lines.map((line) => String(line).trim()).filter(Boolean)
+        : []
+    };
+    persistDisplayState();
+    io.emit('update_ticker', currentTicker);
+  });
+
+  socket.on('hide_ticker', () => {
+    currentTicker = { ...currentTicker, visible: false };
+    persistDisplayState();
+    io.emit('update_ticker', currentTicker);
   });
 });
 

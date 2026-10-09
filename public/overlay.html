@@ -176,6 +176,41 @@
       word-break: break-word;
       width: 100%;
     }
+
+    #tickerBar {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 64px;
+      z-index: 100;
+      display: flex;
+      overflow: hidden;
+      align-items: center;
+      background: #000;
+      color: #fff;
+      font-family: 'GoldenBold', sans-serif;
+      font-size: 30px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 400ms ease;
+    }
+
+    #tickerBar.where-up { top: 0; }
+    #tickerBar.where-down { bottom: 0; }
+    #tickerBar.is-visible { opacity: 1; }
+
+    #tickerTrack {
+      display: flex;
+      width: max-content;
+      animation: ticker-scroll 30s linear infinite;
+    }
+
+    .ticker-copy { flex: none; }
+
+    @keyframes ticker-scroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
   </style>
 </head>
 <body>
@@ -192,6 +227,8 @@
     <div id="ltContent"></div>
   </div>
 
+  <div id="tickerBar" aria-live="polite"><div id="tickerTrack"></div></div>
+
   <script>
     const socket = io();
 
@@ -202,18 +239,103 @@
     const envContainer = document.getElementById('envelopeContainer');
     const envAwardName = document.getElementById('envAwardName');
     const envCard = document.getElementById('envelopeCard');
+    const tickerBar = document.getElementById('tickerBar');
+    const tickerTrack = document.getElementById('tickerTrack');
+    const tickerWhere = new URLSearchParams(window.location.search).get('where') === 'up' ? 'up' : 'down';
 
     let autoTransitionTimer = null;
+    let currentLowerThirdContent = null;
+    let lowerThirdTransitionId = 0;
 
-    function selectBgImage(str) {
+    function updateTicker(ticker) {
+      tickerBar.className = `where-${tickerWhere}`;
+      const lines = Array.isArray(ticker.lines) ? ticker.lines.filter((line) => String(line).trim()) : [];
+
+      if (ticker.visible && lines.length) {
+        tickerTrack.replaceChildren();
+        const copy = document.createElement('div');
+        copy.className = 'ticker-copy';
+        lines.forEach((line, index) => {
+          if (index > 0) copy.append('　　◆　　');
+          copy.append(document.createTextNode(line));
+        });
+        copy.append('　　◆　　');
+        tickerTrack.append(copy);
+
+        const copyWidth = copy.getBoundingClientRect().width;
+        const copiesPerLoop = Math.max(1, Math.ceil(tickerBar.clientWidth / copyWidth));
+        for (let copyIndex = 1; copyIndex < copiesPerLoop * 2; copyIndex += 1) {
+          tickerTrack.append(copy.cloneNode(true));
+        }
+
+        const loopWidth = copyWidth * copiesPerLoop;
+        tickerTrack.style.animation = 'none';
+        void tickerTrack.offsetWidth;
+        tickerTrack.style.animation = '';
+        tickerTrack.style.animationDuration = `${Math.max(18, loopWidth / 100)}s`;
+        tickerTrack.style.animationPlayState = 'running';
+        tickerBar.classList.add('is-visible');
+      } else {
+        tickerTrack.style.animationPlayState = 'paused';
+        tickerBar.classList.remove('is-visible');
+      }
+    }
+
+    socket.on('update_ticker', updateTicker);
+
+    function getBgImageSource(str) {
       const len = str.length;
       if (len <= 15) {
-        bgImg.src = '/assets/lt-small.png';
-      } else if (len <= 30) {
-        bgImg.src = '/assets/lt-medium.png';
-      } else {
-        bgImg.src = '/assets/lt-large.png';
+        return '/assets/lt-small.png';
       }
+      return len <= 30 ? '/assets/lt-medium.png' : '/assets/lt-large.png';
+    }
+
+    function updateLowerThird(content, backgroundText) {
+      if (currentLowerThirdContent === content) return;
+      currentLowerThirdContent = content;
+      gsap.killTweensOf(wrapper);
+      const transitionId = ++lowerThirdTransitionId;
+      const imageSource = getBgImageSource(backgroundText);
+      const preloadImage = new Image();
+      const isVisible = Number(gsap.getProperty(wrapper, 'opacity')) > 0.01;
+      let backgroundReady = false;
+      let fadeOutReady = !isVisible;
+
+      const showNewContent = () => {
+        if (!backgroundReady || !fadeOutReady || transitionId !== lowerThirdTransitionId) return;
+        bgImg.src = imageSource;
+        ltContent.innerHTML = content;
+        gsap.to(wrapper, {
+          opacity: 1,
+          y: 0,
+          duration: isVisible ? 0.4 : 0.6,
+          ease: isVisible ? 'power1.out' : 'back.out(1.2)'
+        });
+      };
+
+      preloadImage.onload = () => {
+        backgroundReady = true;
+        showNewContent();
+      };
+      preloadImage.onerror = () => {
+        backgroundReady = true;
+        showNewContent();
+      };
+      preloadImage.src = imageSource;
+      if (preloadImage.complete) backgroundReady = true;
+
+      if (isVisible) {
+        gsap.to(wrapper, {
+          opacity: 0,
+          duration: 0.25,
+          onComplete: () => {
+            fadeOutReady = true;
+            showNewContent();
+          }
+        });
+      }
+      showNewContent();
     }
 
     function showAwardLowerThird(payload) {
@@ -222,9 +344,7 @@
       const winnerMain = `Team ${teams}`;
       const WinnerName = payload.winnerName || '';
 
-      selectBgImage(awardName + winnerMain);
-
-      ltContent.innerHTML = `
+      updateLowerThird(`
         <div class="award-layout">
           <div class="award-left">${awardName}</div>
           <div class="award-right">
@@ -232,11 +352,10 @@
             <div class="guest-job">${WinnerName}</div>
           </div>
         </div>
-      `;
+      `, awardName + winnerMain);
 
       // 隱藏信封，彈出下方字條
       gsap.to(envContainer, { opacity: 0, scale: 0.8, duration: 0.4 });
-      gsap.to(wrapper, { opacity: 1, y: 0, duration: 0.6, delay: 0.2, ease: "back.out(1.2)" });
     }
 
     socket.on('update_state', (state) => {
@@ -245,9 +364,12 @@
         clearTimeout(autoTransitionTimer);
         autoTransitionTimer = null;
       }
-      gsap.killTweensOf([wrapper, envContainer]);
+      gsap.killTweensOf(envContainer);
 
       if (state.activeType === 'none') {
+        currentLowerThirdContent = null;
+        lowerThirdTransitionId += 1;
+        gsap.killTweensOf(wrapper);
         gsap.to([wrapper, envContainer], { opacity: 0, y: 30, duration: 0.4 });
         return;
       }
@@ -260,9 +382,7 @@
         const name = state.payload.name || '';
         const job = state.payload.jobTitle || '';
 
-        selectBgImage(org + name + job);
-
-        ltContent.innerHTML = `
+        updateLowerThird(`
           <div class="guest-layout">
             ${org ? `<div class="guest-org">${org}</div>` : ''}
             <div class="guest-name-row">
@@ -270,13 +390,14 @@
               ${job ? `<span class="guest-job">${job}</span>` : ''}
             </div>
           </div>
-        `;
-
-        gsap.to(wrapper, { opacity: 1, y: 0, duration: 0.6, ease: "back.out(1.2)" });
+        `, org + name + job);
       }
 
       // 2. 開信封 (全螢幕卡片 2 秒後自動自動過渡至下方 Lower Third)
       if (state.activeType === 'award' && state.stage === 'opening_envelope') {
+        currentLowerThirdContent = null;
+        lowerThirdTransitionId += 1;
+        gsap.killTweensOf(wrapper);
         gsap.to(wrapper, { opacity: 0, duration: 0.3 });
 
         const teams = state.payload.winnerTeams ? state.payload.winnerTeams.split(' ').join(' & Team ') : '';

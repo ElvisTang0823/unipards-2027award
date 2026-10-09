@@ -3,13 +3,13 @@
     {
       "id": "g1",
       "org": "國立南科國際實驗高級中學",
-      "name": "蔡汶鴻",
+      "name": "蔡",
       "jobTitle": "老師"
     },
     {
       "id": "g2",
       "org": "FIRST Taiwan",
-      "name": "陳曉明我是王曉明明明哈哈哈哈哈",
+      "name": "陳曉明王曉明明明哈哈哈哈哈",
       "jobTitle": "競賽總監"
     }
   ],
@@ -18,7 +18,11 @@
       "id": "a1",
       "name": "冠軍聯盟",
       "winnerTeams": "6998 7589 8020",
-      "winnerName": "Unipards & cyberpunk........"
+      "winnerName": ""
     }
+  ],
+  "tickerLines": [
+    "抽獎了各位",
+    "哈哈哈哈哈哈哈哈哈哈哈哈"
   ]
 }

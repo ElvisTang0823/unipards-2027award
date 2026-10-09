@@ -1,10 +1,12 @@
 {
-  "activeType": "guest",
-  "stage": "showing",
-  "payload": {
-    "id": "g1",
-    "org": "國立成功大學",
-    "name": "沈曉明",
-    "jobTitle": "校長"
+  "activeType": "none",
+  "stage": "idle",
+  "payload": {},
+  "ticker": {
+    "visible": false,
+    "lines": [
+      "抽獎了各位",
+      "哈哈哈哈哈哈哈哈哈哈哈哈"
+    ]
   }
 }
