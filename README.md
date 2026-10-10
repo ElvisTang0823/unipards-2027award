@@ -1,6 +1,12 @@
 # NKS Award Overlay
 
-## 啟動
+## 免安裝啟動（Windows x64）
+
+專案已附 Node.js 執行檔。將整個專案資料夾複製到另一台電腦，雙擊 `Start NKS Award.bat` 即可啟動；目標電腦不需安裝 Node.js、npm 或其他插件。請勿只複製 `server.js`，`node.exe`、`node_modules/`、`data.json` 與 `public/` 都必須保留。
+
+啟動後可在本機開啟 `http://localhost:3000/ctrl`。若要使用外部觸發 API，請先設定 `EXT_API_TOKEN` 再從命令列啟動。
+
+## 開發／手動啟動（需安裝 Node.js）
 
 設定外部觸發 API 的存取 token（未設定時外部觸發 API 會拒絕請求），再啟動伺服器：
 
