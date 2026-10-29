@@ -2,14 +2,36 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { timingSafeEqual } = require('node:crypto');
+const { timingSafeEqual, randomBytes } = require('node:crypto');
 const { WebSocketServer, WebSocket } = require('ws');
 
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DATA_FILE = path.join(ROOT, 'data.json');
 const BACKUP_DIR = path.join(ROOT, 'backups');
+
+function loadEnvFile() {
+  const envFile = path.join(ROOT, '.env');
+  if (!fs.existsSync(envFile)) return;
+  for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (!match || Object.prototype.hasOwnProperty.call(process.env, match[1])) continue;
+    let value = match[2];
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    } else {
+      value = value.replace(/\s+#.*$/, '').trim();
+    }
+    process.env[match[1]] = value;
+  }
+}
+
+loadEnvFile();
+
 const PORT = Number(process.env.PORT || 3000);
+const AUTH_PASSWORD = process.env.AUTH_PASSWORD || '';
+const AUTH_ENABLED = AUTH_PASSWORD.length > 0;
+const AUTH_SESSION_TTL = 8 * 60 * 60 * 1000;
 const MAX_REQUEST_BYTES = 1024 * 1024;
 const MAX_TEAM_AVATAR_BYTES = 5 * 1024 * 1024;
 const MAX_TEAM_AVATAR_CACHE_BYTES = 32 * 1024 * 1024;
@@ -21,6 +43,8 @@ const MAX_WS_MESSAGES_PER_SECOND = 20;
 const TEAM_AVATAR_SOURCES = ['10.0.100.5', 'localhost'];
 const teamAvatarCache = new Map();
 const teamAvatarRequests = new Map();
+const authSessions = new Map();
+const loginAttempts = new Map();
 let teamAvatarCacheBytes = 0;
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -39,14 +63,26 @@ const MIME_TYPES = {
 function loadData() {
   try {
     const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    return {
+    const ceremonies = Array.isArray(data.ceremonies)
+      ? data.ceremonies
+      : data.ceremony && (data.ceremony.title || data.ceremony.subtitle)
+        ? [{ id: 'ceremony_legacy', title: data.ceremony.title || '', subtitle: data.ceremony.subtitle || '' }]
+        : [];
+    const normalizedData = {
       ...data,
       guests: Array.isArray(data.guests) ? data.guests : [],
       awards: Array.isArray(data.awards) ? data.awards : [],
-      tickerLines: Array.isArray(data.tickerLines) ? data.tickerLines : []
+      tickerLines: Array.isArray(data.tickerLines) ? data.tickerLines : [],
+      ceremonies: ceremonies.filter((item) => item && typeof item === 'object').map((item, index) => ({
+        id: typeof item.id === 'string' && item.id ? item.id : `ceremony_${index + 1}`,
+        title: typeof item.title === 'string' ? item.title : '',
+        subtitle: typeof item.subtitle === 'string' ? item.subtitle : ''
+      }))
     };
+    delete normalizedData.ceremony;
+    return normalizedData;
   } catch (error) {
-    return { guests: [], awards: [], tickerLines: [] };
+    return { guests: [], awards: [], tickerLines: [], ceremonies: [] };
   }
 }
 
@@ -54,6 +90,8 @@ let data = loadData();
 let currentState = { t: 'n', i: '', s: 'idle' };
 let tickerVisible = false;
 let watermarkVisible = true;
+let ceremonyVisible = false;
+let activeCeremonyId = '';
 let envelopeTimer = null;
 const clients = new Set();
 
@@ -86,6 +124,11 @@ function setState(type, id = '', stage = 'idle') {
   }
   currentState = { t: type, i: id, s: stage };
   broadcast({ e: 's', ...currentState });
+  if (ceremonyVisible) {
+    ceremonyVisible = false;
+    activeCeremonyId = '';
+    broadcast({ e: 'c', v: 0, i: '' });
+  }
   if (type === 'a' && stage === 'oe') {
     envelopeTimer = setTimeout(() => {
       if (currentState.t !== 'a' || currentState.i !== id || currentState.s !== 'oe') return;
@@ -102,6 +145,76 @@ function jsonResponse(response, status, body) {
     'X-Content-Type-Options': 'nosniff'
   });
   response.end(JSON.stringify(body));
+}
+
+function getCookie(request, name) {
+  const cookies = String(request.headers.cookie || '').split(';');
+  for (const cookie of cookies) {
+    const separator = cookie.indexOf('=');
+    if (separator < 0 || cookie.slice(0, separator).trim() !== name) continue;
+    return cookie.slice(separator + 1).trim();
+  }
+  return '';
+}
+
+function isAuthenticated(request) {
+  const sessionId = getCookie(request, 'nks_session');
+  const expiresAt = authSessions.get(sessionId);
+  if (!expiresAt) return false;
+  if (expiresAt <= Date.now()) {
+    authSessions.delete(sessionId);
+    return false;
+  }
+  return true;
+}
+
+function clearExpiredSessions() {
+  const now = Date.now();
+  for (const [sessionId, expiresAt] of authSessions) {
+    if (expiresAt <= now) authSessions.delete(sessionId);
+  }
+}
+
+function getClientAddress(request) {
+  return request.socket.remoteAddress || 'unknown';
+}
+
+function isLoginRateLimited(request) {
+  const attempt = loginAttempts.get(getClientAddress(request));
+  if (!attempt || attempt.resetAt <= Date.now()) {
+    loginAttempts.delete(getClientAddress(request));
+    return false;
+  }
+  return attempt.count >= 10;
+}
+
+function recordLoginFailure(request) {
+  const address = getClientAddress(request);
+  const attempt = loginAttempts.get(address);
+  if (!attempt || attempt.resetAt <= Date.now()) {
+    loginAttempts.set(address, { count: 1, resetAt: Date.now() + 15 * 60 * 1000 });
+  } else {
+    attempt.count += 1;
+  }
+}
+
+function validateLoginPassword(password) {
+  const supplied = Buffer.from(typeof password === 'string' ? password : '');
+  const expected = Buffer.from(AUTH_PASSWORD);
+  return expected.length > 0 && supplied.length === expected.length && timingSafeEqual(supplied, expected);
+}
+
+function setSessionCookie(response, request, sessionId) {
+  const secure = request.socket.encrypted ? '; Secure' : '';
+  response.setHeader('Set-Cookie', `nks_session=${sessionId}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${AUTH_SESSION_TTL / 1000}${secure}`);
+}
+
+function sendLoginPage(response, nextPath) {
+  response.writeHead(302, {
+    Location: `/login?next=${encodeURIComponent(nextPath)}`,
+    'Cache-Control': 'no-store'
+  });
+  response.end();
 }
 
 function fetchTeamAvatarFromHost(host, teamId) {
@@ -290,8 +403,61 @@ async function handleRequest(request, response) {
   const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
   const pathname = decodeURIComponent(url.pathname);
 
+  if (request.method === 'POST' && pathname === '/api/auth/login') {
+    if (!hasAllowedOrigin(request)) {
+      jsonResponse(response, 403, { error: 'Cross-origin request rejected' });
+      return;
+    }
+    if (!AUTH_ENABLED) {
+      jsonResponse(response, 503, { error: 'Server password is not configured' });
+      return;
+    }
+    if (isLoginRateLimited(request)) {
+      jsonResponse(response, 429, { error: 'Too many login attempts. Try again later.' });
+      return;
+    }
+    let body;
+    try {
+      body = await readRequestJson(request);
+    } catch (error) {
+      jsonResponse(response, error.status || 400, { error: error.message });
+      return;
+    }
+    if (!validateLoginPassword(body.password)) {
+      recordLoginFailure(request);
+      jsonResponse(response, 401, { error: '密碼錯誤，請再試一次。' });
+      return;
+    }
+    loginAttempts.delete(getClientAddress(request));
+    clearExpiredSessions();
+    const sessionId = randomBytes(32).toString('base64url');
+    authSessions.set(sessionId, Date.now() + AUTH_SESSION_TTL);
+    setSessionCookie(response, request, sessionId);
+    jsonResponse(response, 200, { success: true });
+    return;
+  }
+
+  const protectedPagePaths = new Map([
+    ['/', '/ctrl'],
+    ['/ctrl', '/ctrl'],
+    ['/ctrl.html', '/ctrl'],
+    ['/mc', '/mc'],
+    ['/mc.html', '/mc']
+  ]);
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    const protectedPath = protectedPagePaths.get(pathname);
+    if (protectedPath && AUTH_ENABLED && !isAuthenticated(request)) {
+      sendLoginPage(response, protectedPath);
+      return;
+    }
+  }
+
   if (request.method === 'POST' && ['/api/data', '/api/save', '/api/backup'].includes(pathname) && !hasAllowedOrigin(request)) {
     jsonResponse(response, 403, { error: 'Cross-origin request rejected' });
+    return;
+  }
+  if (request.method === 'POST' && ['/api/data', '/api/save', '/api/backup'].includes(pathname) && AUTH_ENABLED && !isAuthenticated(request)) {
+    jsonResponse(response, 401, { error: 'Authentication required' });
     return;
   }
 
@@ -310,8 +476,24 @@ async function handleRequest(request, response) {
         ...nextData,
         guests: Array.isArray(nextData.guests) ? nextData.guests : [],
         awards: Array.isArray(nextData.awards) ? nextData.awards : [],
-        tickerLines: Array.isArray(nextData.tickerLines) ? nextData.tickerLines : []
+        tickerLines: Array.isArray(nextData.tickerLines) ? nextData.tickerLines : [],
+        ceremonies: Array.isArray(nextData.ceremonies) ? nextData.ceremonies
+          .filter((item) => item && typeof item === 'object')
+          .map((item, index) => ({
+            id: typeof item.id === 'string' && item.id ? item.id : `ceremony_${index + 1}`,
+            title: typeof item.title === 'string' ? item.title : '',
+            subtitle: typeof item.subtitle === 'string' ? item.subtitle : ''
+          }))
+          : nextData.ceremony && (nextData.ceremony.title || nextData.ceremony.subtitle)
+            ? [{ id: 'ceremony_legacy', title: String(nextData.ceremony.title || ''), subtitle: String(nextData.ceremony.subtitle || '') }]
+            : []
       };
+      delete data.ceremony;
+      if (ceremonyVisible && !data.ceremonies.some((item) => item.id === activeCeremonyId)) {
+        ceremonyVisible = false;
+        activeCeremonyId = '';
+        broadcast({ e: 'c', v: 0, i: '' });
+      }
       warmTeamAvatarCache(data.awards);
       broadcast({ e: 'd', d: data });
       jsonResponse(response, 200, { success: true, saved: false });
@@ -371,6 +553,7 @@ async function handleRequest(request, response) {
   const routeFiles = {
     '/': 'ctrl.html',
     '/ctrl': 'ctrl.html',
+    '/login': 'login.html',
     '/overlay': 'overlay.html',
     '/mc': 'mc.html'
   };
@@ -433,14 +616,16 @@ server.on('upgrade', (request, socket, head) => {
   webSockets.handleUpgrade(request, socket, head, (client) => webSockets.emit('connection', client, request));
 });
 
-webSockets.on('connection', (client) => {
+webSockets.on('connection', (client, request) => {
   clients.add(client);
   let messageWindowStart = Date.now();
   let messageCount = 0;
   send(client, { e: 's', ...currentState });
   send(client, { e: 'k', v: tickerVisible ? 1 : 0 });
   send(client, { e: 'w', v: watermarkVisible ? 1 : 0 });
+  send(client, { e: 'c', v: ceremonyVisible ? 1 : 0, i: activeCeremonyId });
   client.on('message', (rawMessage) => {
+    if (AUTH_ENABLED && !isAuthenticated(request)) return;
     const now = Date.now();
     if (now - messageWindowStart >= 1000) {
       messageWindowStart = now;
@@ -479,6 +664,21 @@ webSockets.on('connection', (client) => {
     if (message.e === 'w') {
       watermarkVisible = message.v === 1;
       broadcast({ e: 'w', v: watermarkVisible ? 1 : 0 });
+      return;
+    }
+    if (message.e === 'c' && message.v === 0) {
+      ceremonyVisible = false;
+      activeCeremonyId = '';
+      broadcast({ e: 'c', v: 0, i: '' });
+      return;
+    }
+    if (message.e === 'c' && message.v === 1) {
+      const ceremony = data.ceremonies.find((item) => item.id === String(message.i));
+      if (!ceremony) return;
+      if (currentState.t !== 'n' || currentState.s !== 'idle') setState('n');
+      ceremonyVisible = true;
+      activeCeremonyId = ceremony.id;
+      broadcast({ e: 'c', v: 1, i: activeCeremonyId });
     }
   });
   client.on('close', () => clients.delete(client));
@@ -502,6 +702,11 @@ function getLocalIP() {
 
 server.listen(PORT, '0.0.0.0', () => {
   const localIP = getLocalIP();
+  if (AUTH_ENABLED) {
+    console.log('Password protection is enabled for /ctrl and /mc.');
+  } else {
+    console.log('AUTH_PASSWORD is empty; /ctrl and /mc are open without login.');
+  }
   warmTeamAvatarCache(data.awards);
   console.log(`FRC award relay ready at http://${localIP}:${PORT}`);
   console.log(`Control: http://${localIP}:${PORT}/ctrl`);

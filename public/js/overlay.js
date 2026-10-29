@@ -7,6 +7,9 @@ const wrapper = document.getElementById('lowerThirdWrapper');
     const tickerBar = document.getElementById('tickerBar');
     const tickerTrack = document.getElementById('tickerTrack');
     const watermark = document.getElementById('watermark');
+    const ceremonyRibbon = document.getElementById('ceremonyRibbon');
+    const ceremonyTitle = document.getElementById('ceremonyTitle');
+    const ceremonySubtitle = document.getElementById('ceremonySubtitle');
     const displayWhere = new URLSearchParams(window.location.search).get('where');
     const tickerWhere = displayWhere === 'up' ? 'up' : 'down';
     if (displayWhere === 'top') watermark.classList.add('where-top');
@@ -17,6 +20,8 @@ const wrapper = document.getElementById('lowerThirdWrapper');
     let data = { guests: [], awards: [], tickerLines: [] };
     let compactState = { t: 'n', i: '', s: 'idle' };
     let tickerVisible = false;
+    let ceremonyVisible = false;
+    let activeCeremonyId = '';
     const teamAvatarPreloads = new Map();
 
     function preloadTeamAvatar(teamId) {
@@ -46,6 +51,11 @@ const wrapper = document.getElementById('lowerThirdWrapper');
       for (const teamId of teamIds) preloadTeamAvatar(teamId);
     }
 
+    function renderCeremony(ceremony = {}) {
+      ceremonyTitle.textContent = ceremony.title || '';
+      ceremonySubtitle.textContent = ceremony.subtitle || '';
+    }
+
     function renderCompactState(message) {
       compactState = message;
       const activeType = message.t === 'g' ? 'guest' : message.t === 'a' ? 'award' : 'none';
@@ -70,8 +80,17 @@ const wrapper = document.getElementById('lowerThirdWrapper');
           updateTicker({ visible: tickerVisible, lines: data.tickerLines });
         }
         if (message.e === 'w') watermark.classList.toggle('is-visible', message.v === 1);
+        if (message.e === 'c') {
+          ceremonyVisible = message.v === 1;
+          activeCeremonyId = ceremonyVisible ? message.i || '' : '';
+          const ceremony = (data.ceremonies || []).find((item) => item.id === activeCeremonyId);
+          renderCeremony(ceremony);
+          ceremonyRibbon.classList.toggle('is-visible', ceremonyVisible);
+          ceremonyRibbon.setAttribute('aria-hidden', String(!ceremonyVisible));
+        }
         if (message.e === 'd') {
           data = message.d;
+          renderCeremony((data.ceremonies || []).find((item) => item.id === activeCeremonyId));
           preloadTeamAvatars(data.awards);
           updateTicker({ visible: tickerVisible, lines: data.tickerLines });
           renderCompactState(compactState);
@@ -85,6 +104,7 @@ const wrapper = document.getElementById('lowerThirdWrapper');
       .then((response) => response.json())
       .then((loadedData) => {
         data = loadedData;
+        renderCeremony((data.ceremonies || []).find((item) => item.id === activeCeremonyId));
         preloadTeamAvatars(data.awards);
         updateTicker({ visible: tickerVisible, lines: data.tickerLines });
         renderCompactState(compactState);

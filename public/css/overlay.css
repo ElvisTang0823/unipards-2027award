@@ -326,6 +326,46 @@
       bottom: auto;
     }
 
+    #ceremonyRibbon {
+      position: absolute;
+      left: 110px;
+      bottom: 50px;
+      z-index: 2;
+      min-width: 440px;
+      max-width: 820px;
+      padding: 22px 40px 22px 34px;
+      border-left: 10px solid #f4d76e;
+      background: linear-gradient(105deg, rgba(20, 19, 15, .96), rgba(54, 43, 19, .9));
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+      color: #fff4cf;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(-24px);
+      transition: opacity 350ms ease, transform 450ms cubic-bezier(.2,.8,.2,1), visibility 0s linear 450ms;
+    }
+
+    #ceremonyRibbon.is-visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0);
+      transition: opacity 350ms ease, transform 450ms cubic-bezier(.2,.8,.2,1), visibility 0s;
+    }
+
+    #ceremonyTitle {
+      font-family: 'GoldenBold', sans-serif;
+      font-size: 2.8rem;
+      letter-spacing: 4px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, .8);
+    }
+
+    #ceremonySubtitle {
+      margin-top: 4px;
+      color: #e4bd57;
+      font-family: 'GoldenLight', sans-serif;
+      font-size: 1.6rem;
+      letter-spacing: 3px;
+    }
+
     #tickerTrack {
       display: flex;
       width: max-content;

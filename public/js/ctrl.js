@@ -2,6 +2,8 @@ const pendingMessages = [];
     let db = { guests: [], awards: [], tickerLines: [''] };
 let watermarkVisible = true;
     let tickerVisible = false;
+    let activeCeremonyId = '';
+    let activeProgramState = { t: 'n', i: '', s: 'idle' };
     let socket;
 
 function setWatermarkVisible(visible) {
@@ -20,6 +22,28 @@ function setTickerVisible(visible) {
   button.classList.toggle('btn-show', !visible);
 }
 
+function setCeremonyState(visible, ceremonyId = '') {
+  activeCeremonyId = visible ? ceremonyId : '';
+  updateProgramButtons();
+  document.querySelectorAll('#ceremonyTable [data-action="toggle-ceremony"]').forEach((button) => {
+    const isActive = button.dataset.ceremonyId === activeCeremonyId;
+    button.textContent = isActive ? '隱藏' : '顯示';
+    button.classList.toggle('btn-hide', isActive);
+    button.classList.toggle('btn-show', !isActive);
+  });
+}
+
+function updateProgramButtons() {
+  document.querySelectorAll('[data-action="toggle-guest"], [data-action="toggle-award"]').forEach((button) => {
+    const type = button.dataset.action === 'toggle-guest' ? 'g' : 'a';
+    const item = type === 'g' ? db.guests[Number(button.dataset.index)] : db.awards[Number(button.dataset.index)];
+    const isActive = Boolean(item && activeProgramState.t === type && String(item.id) === String(activeProgramState.i));
+    button.textContent = isActive ? '隱藏' : '顯示';
+    button.classList.toggle('btn-hide', isActive);
+    button.classList.toggle('btn-show', !isActive);
+  });
+}
+
 function connectSocket() {
   socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
   socket.addEventListener('message', (event) => {
@@ -29,8 +53,13 @@ function connectSocket() {
     } catch (error) {
       return;
     }
+    if (message.e === 's') {
+      activeProgramState = message;
+      updateProgramButtons();
+    }
     if (message.e === 'w') setWatermarkVisible(message.v === 1);
     if (message.e === 'k') setTickerVisible(message.v === 1);
+    if (message.e === 'c') setCeremonyState(message.v === 1, message.i || '');
   });
   socket.addEventListener('open', () => {
     while (pendingMessages.length) socket.send(JSON.stringify(pendingMessages.shift()));
@@ -48,7 +77,13 @@ function connectSocket() {
       const res = await fetch('/api/data');
       db = await res.json();
       if (!Array.isArray(db.tickerLines)) db.tickerLines = [''];
+      if (!Array.isArray(db.ceremonies)) {
+        db.ceremonies = db.ceremony && (db.ceremony.title || db.ceremony.subtitle)
+          ? [{ id: 'ceremony_legacy', title: db.ceremony.title || '', subtitle: db.ceremony.subtitle || '' }]
+          : [];
+      }
       renderTables();
+      renderCeremonies();
       renderTickerLines();
     }
 
@@ -61,8 +96,7 @@ function connectSocket() {
           <td><input type="text" value="${g.jobTitle || ''}" placeholder="例: 校長 (可留空)" data-entity="guest" data-index="${index}" data-field="jobTitle"></td>
           <td class="actions-cell">
             <div class="btn-group">
-              <button class="btn-show" data-action="trigger-guest" data-index="${index}">顯示</button>
-              <button class="btn-hide" data-action="clear-overlay">隱藏</button>
+              <button class="btn-show" data-action="toggle-guest" data-index="${index}">顯示</button>
             </div>
           </td>
         </tr>
@@ -77,12 +111,41 @@ function connectSocket() {
           <td class="actions-cell">
             <div class="btn-group">
               <button class="btn-env" data-action="trigger-envelope" data-index="${index}">開信封</button>
-              <button class="btn-show" data-action="trigger-award-lower-third" data-index="${index}">下底</button>
-              <button class="btn-hide" data-action="clear-overlay">隱藏</button>
+              <button class="btn-show" data-action="toggle-award" data-index="${index}">顯示</button>
             </div>
           </td>
         </tr>
       `).join('');
+      updateProgramButtons();
+    }
+
+    function escapeAttribute(value) {
+      return String(value || '').replace(/[&"<>']/g, (character) => ({
+        '&': '&amp;',
+        '"': '&quot;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;'
+      })[character]);
+    }
+
+    function renderCeremonies() {
+      const body = document.querySelector('#ceremonyTable tbody');
+      body.innerHTML = db.ceremonies.map((ceremony, index) => {
+        const isActive = ceremony.id === activeCeremonyId;
+        return `
+          <tr>
+            <td><input type="text" value="${escapeAttribute(ceremony.title)}" placeholder="例如：開幕典禮" data-entity="ceremony" data-index="${index}" data-field="title"></td>
+            <td><input type="text" value="${escapeAttribute(ceremony.subtitle)}" placeholder="例如：2027 NKS Award" data-entity="ceremony" data-index="${index}" data-field="subtitle"></td>
+            <td class="actions-cell">
+              <div class="btn-group">
+                <button class="${isActive ? 'btn-hide' : 'btn-show'}" data-action="toggle-ceremony" data-index="${index}" data-ceremony-id="${escapeAttribute(ceremony.id)}">${isActive ? '隱藏' : '顯示'}</button>
+                <button class="btn-hide" data-action="delete-ceremony" data-index="${index}">刪除</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
     async function saveData() {
@@ -174,6 +237,30 @@ function connectSocket() {
       sendMessage({ e: 'w', v: watermarkVisible ? 1 : 0 });
     }
 
+    function toggleCeremony(index) {
+      const ceremony = db.ceremonies[index];
+      if (!ceremony) return;
+      const willShow = ceremony.id !== activeCeremonyId;
+      sendMessage({ e: 'c', v: willShow ? 1 : 0, i: ceremony.id });
+      setCeremonyState(willShow, willShow ? ceremony.id : '');
+    }
+
+    function addCeremony() {
+      db.ceremonies.push({ id: `c_${Date.now()}`, title: '', subtitle: '' });
+      saveData();
+      renderCeremonies();
+    }
+
+    function deleteCeremony(index) {
+      const [ceremony] = db.ceremonies.splice(index, 1);
+      if (ceremony?.id === activeCeremonyId) {
+        sendMessage({ e: 'c', v: 0 });
+        setCeremonyState(false);
+      }
+      saveData();
+      renderCeremonies();
+    }
+
     function addGuestRow() {
       db.guests.push({ id: 'g_' + Date.now(), org: '', name: '新嘉賓', jobTitle: '' });
       saveData(); renderTables();
@@ -184,16 +271,28 @@ function connectSocket() {
       saveData(); renderTables();
     }
 
-    function triggerGuest(i) {
-      sendMessage({ e: 't', t: 'g', i: String(db.guests[i].id) });
+    function toggleGuest(i) {
+      const guest = db.guests[i];
+      if (!guest) return;
+      if (activeProgramState.t === 'g' && String(activeProgramState.i) === String(guest.id)) {
+        clearOverlay();
+      } else {
+        sendMessage({ e: 't', t: 'g', i: String(guest.id) });
+      }
     }
 
     function triggerEnvelope(i) {
       sendMessage({ e: 't', t: 'a', i: String(db.awards[i].id), s: 'oe' });
     }
 
-    function triggerAwardLowerThird(i) {
-      sendMessage({ e: 't', t: 'a', i: String(db.awards[i].id), s: 'sl' });
+    function toggleAward(i) {
+      const award = db.awards[i];
+      if (!award) return;
+      if (activeProgramState.t === 'a' && String(activeProgramState.i) === String(award.id)) {
+        clearOverlay();
+      } else {
+        sendMessage({ e: 't', t: 'a', i: String(award.id), s: 'sl' });
+      }
     }
 
     function clearOverlay() {
@@ -202,6 +301,7 @@ function connectSocket() {
 
     function emergencyClear() {
       sendMessage({ e: 't', t: 'n', clearTicker: true });
+      setCeremonyState(false);
     }
 
     document.addEventListener('change', (event) => {
@@ -210,6 +310,10 @@ function connectSocket() {
       const index = Number(input.dataset.index);
       if (input.dataset.entity === 'guest') updateGuest(index, input.dataset.field, input.value);
       if (input.dataset.entity === 'award') updateAward(index, input.dataset.field, input.value);
+      if (input.dataset.entity === 'ceremony') {
+        db.ceremonies[index][input.dataset.field] = input.value;
+        saveData();
+      }
     });
 
     document.addEventListener('focusin', (event) => {
@@ -238,11 +342,14 @@ function connectSocket() {
         case 'save-backup': saveBackup(); break;
         case 'add-guest': addGuestRow(); break;
         case 'add-award': addAwardRow(); break;
+        case 'add-ceremony': addCeremony(); break;
         case 'add-ticker-line': addTickerLine(); break;
         case 'toggle-watermark': toggleWatermark(); break;
-        case 'trigger-guest': triggerGuest(index); break;
+        case 'toggle-ceremony': toggleCeremony(index); break;
+        case 'delete-ceremony': deleteCeremony(index); break;
+        case 'toggle-guest': toggleGuest(index); break;
         case 'trigger-envelope': triggerEnvelope(index); break;
-        case 'trigger-award-lower-third': triggerAwardLowerThird(index); break;
+        case 'toggle-award': toggleAward(index); break;
       }
     });
 

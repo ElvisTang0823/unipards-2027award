@@ -1,8 +1,10 @@
 const liveTitle = document.getElementById('liveTitle');
     const liveDetail = document.getElementById('liveDetail');
-    let data = { guests: [], awards: [] };
+    let data = { guests: [], awards: [], ceremonies: [] };
     let liveState = { activeType: 'none', stage: 'idle', payload: {} };
     let compactState = { t: 'n', i: '', s: 'idle' };
+    let ceremonyVisible = false;
+    let activeCeremonyId = '';
 
     function makeNote(item, type) {
       const label = document.createElement('label');
@@ -64,6 +66,9 @@ const liveTitle = document.getElementById('liveTitle');
         liveTitle.textContent = liveState.payload.name || '頒獎流程';
         const teams = String(liveState.payload.winnerTeams || '').trim().split(/\s+/).filter(Boolean).map((team) => `Team ${team}`).join(' · ');
         liveDetail.textContent = `${liveState.stage === 'opening_envelope' ? '開信封' : '下底字卡'}${teams ? ` · ${teams}` : ''}`;
+      } else if (liveState.activeType === 'ceremony') {
+        liveTitle.textContent = liveState.payload.title || '儀式名稱';
+        liveDetail.textContent = liveState.payload.subtitle || '';
       } else {
         liveTitle.textContent = '目前沒有字卡';
         liveDetail.textContent = '等待導播發送';
@@ -73,6 +78,11 @@ const liveTitle = document.getElementById('liveTitle');
 
     function renderCompactState(message) {
       compactState = message;
+      if (ceremonyVisible) {
+        const ceremony = (data.ceremonies || []).find((item) => item.id === activeCeremonyId) || {};
+        renderLiveState({ activeType: 'ceremony', stage: 'showing', payload: ceremony });
+        return;
+      }
       const activeType = message.t === 'g' ? 'guest' : message.t === 'a' ? 'award' : 'none';
       const items = activeType === 'guest' ? data.guests : activeType === 'award' ? data.awards : [];
       const payload = items.find((item) => String(item.id) === String(message.i)) || {};
@@ -102,6 +112,11 @@ const liveTitle = document.getElementById('liveTitle');
           return;
         }
         if (message.e === 's') renderCompactState(message);
+        if (message.e === 'c') {
+          ceremonyVisible = message.v === 1;
+          activeCeremonyId = ceremonyVisible ? message.i || '' : '';
+          renderCompactState(compactState);
+        }
         if (message.e === 'd') {
           data = message.d;
           render();

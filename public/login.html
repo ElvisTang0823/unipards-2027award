@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登入 | NKS Award</title>
+  <link rel="stylesheet" href="/css/login.css">
+  <script src="/js/login.js" defer></script>
+</head>
+<body>
+  <main class="login-panel">
+    <h1>NKS Award</h1>
+    <p>請輸入密碼以繼續</p>
+    <form id="loginForm">
+      <label for="password">密碼</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+      <button type="submit">登入</button>
+      <p id="loginMessage" role="alert" aria-live="polite"></p>
+    </form>
+  </main>
+</body>
+</html>
