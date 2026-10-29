@@ -651,7 +651,7 @@ webSockets.on('connection', (client, request) => {
         }
       } else if (message.t === 'g' && getItem('g', message.i)) {
         setState('g', String(message.i), 'showing');
-      } else if (message.t === 'a' && getItem('a', message.i) && ['oe', 'sl'].includes(message.s)) {
+      } else if (message.t === 'a' && getItem('a', message.i) && ['oe', 'sl', 'pv'].includes(message.s)) {
         setState('a', String(message.i), message.s);
       }
       return;

@@ -15,6 +15,7 @@ const wrapper = document.getElementById('lowerThirdWrapper');
     if (displayWhere === 'top') watermark.classList.add('where-top');
 
     let autoTransitionTimer = null;
+    let envelopeRevealTimer = null;
     let currentLowerThirdContent = null;
     let lowerThirdTransitionId = 0;
     let data = { guests: [], awards: [], tickerLines: [] };
@@ -61,7 +62,7 @@ const wrapper = document.getElementById('lowerThirdWrapper');
       const activeType = message.t === 'g' ? 'guest' : message.t === 'a' ? 'award' : 'none';
       const items = activeType === 'guest' ? data.guests : activeType === 'award' ? data.awards : [];
       const payload = items.find((item) => String(item.id) === String(message.i)) || {};
-      const stage = message.s === 'oe' ? 'opening_envelope' : message.s === 'sl' ? 'showing_lower_third' : message.s;
+      const stage = message.s === 'oe' ? 'opening_envelope' : message.s === 'sl' ? 'showing_lower_third' : message.s === 'pv' ? 'preview' : message.s;
       renderState({ activeType, stage, payload });
     }
 
@@ -221,17 +222,25 @@ const wrapper = document.getElementById('lowerThirdWrapper');
         clearTimeout(autoTransitionTimer);
         autoTransitionTimer = null;
       }
+      if (envelopeRevealTimer) {
+        clearTimeout(envelopeRevealTimer);
+        envelopeRevealTimer = null;
+      }
       if (state.activeType === 'none') {
         currentLowerThirdContent = null;
         lowerThirdTransitionId += 1;
         wrapper.classList.remove('is-visible');
         envContainer.classList.remove('is-visible');
+        envContainer.classList.remove('is-preview');
+        envContainer.classList.remove('is-opening');
         return;
       }
 
       // 1. 致詞嘉賓
       if (state.activeType === 'guest') {
         envContainer.classList.remove('is-visible');
+        envContainer.classList.remove('is-preview');
+        envContainer.classList.remove('is-opening');
 
         const org = state.payload.org || '';
         const name = state.payload.name || '';
@@ -261,19 +270,41 @@ const wrapper = document.getElementById('lowerThirdWrapper');
         updateLowerThird(layout, `guest:${JSON.stringify([state.payload.id, org, name, job])}`);
       }
 
+      if (state.activeType === 'award' && state.stage === 'preview') {
+        currentLowerThirdContent = null;
+        lowerThirdTransitionId += 1;
+        wrapper.classList.remove('is-visible');
+        envAwardName.textContent = state.payload.name || '獎項名稱';
+        envCard.replaceChildren();
+        envContainer.classList.remove('is-opening');
+        envContainer.classList.add('is-preview');
+        envContainer.classList.remove('is-visible');
+        requestAnimationFrame(() => envContainer.classList.add('is-visible'));
+      }
+
       // 2. 開信封 (全螢幕卡片 2 秒後自動自動過渡至下方 Lower Third)
       if (state.activeType === 'award' && state.stage === 'opening_envelope') {
+        const wasPreviewVisible = envContainer.classList.contains('is-preview')
+          && envContainer.classList.contains('is-visible');
         currentLowerThirdContent = null;
         lowerThirdTransitionId += 1;
         wrapper.classList.remove('is-visible');
 
         const teamIds = String(state.payload.winnerTeams || '').trim().split(/\s+/).filter(Boolean);
-        envAwardName.innerText = state.payload.name || '獎項名稱';
+        envAwardName.textContent = state.payload.name || '獎項名稱';
         envCard.replaceChildren(createTeamDisplay(teamIds, 'envelope-team-row'));
         envCard.style.fontSize = teamIds.length > 2 ? '3rem' : '3.2rem';
 
-        envContainer.classList.remove('is-visible');
-        requestAnimationFrame(() => envContainer.classList.add('is-visible'));
+        envContainer.classList.add('is-opening');
+        envContainer.classList.remove('is-preview');
+        if (!wasPreviewVisible) {
+          envContainer.classList.remove('is-visible');
+          requestAnimationFrame(() => envContainer.classList.add('is-visible'));
+        }
+        envelopeRevealTimer = setTimeout(() => {
+          envContainer.classList.remove('is-opening');
+          envelopeRevealTimer = null;
+        }, 600);
 
         // 設定 2000ms (2秒) 後自動執行下底字卡動畫
         autoTransitionTimer = setTimeout(() => {

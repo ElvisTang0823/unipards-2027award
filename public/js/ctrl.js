@@ -110,6 +110,7 @@ function connectSocket() {
           <td><input type="password" value="${a.winnerName || ''}" autocomplete="new-password" data-entity="award" data-index="${index}" data-field="winnerName" data-mask-on-edit></td>
           <td class="actions-cell">
             <div class="btn-group">
+              <button class="btn-ticker" data-action="preview-award" data-index="${index}">預覽</button>
               <button class="btn-env" data-action="trigger-envelope" data-index="${index}">開信封</button>
               <button class="btn-show" data-action="toggle-award" data-index="${index}">顯示</button>
             </div>
@@ -282,7 +283,13 @@ function connectSocket() {
     }
 
     function triggerEnvelope(i) {
+      if (!db.awards[i]) return;
       sendMessage({ e: 't', t: 'a', i: String(db.awards[i].id), s: 'oe' });
+    }
+
+    function previewAward(i) {
+      if (!db.awards[i]) return;
+      sendMessage({ e: 't', t: 'a', i: String(db.awards[i].id), s: 'pv' });
     }
 
     function toggleAward(i) {
@@ -349,6 +356,7 @@ function connectSocket() {
         case 'delete-ceremony': deleteCeremony(index); break;
         case 'toggle-guest': toggleGuest(index); break;
         case 'trigger-envelope': triggerEnvelope(index); break;
+        case 'preview-award': previewAward(index); break;
         case 'toggle-award': toggleAward(index); break;
       }
     });

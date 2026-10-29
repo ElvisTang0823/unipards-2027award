@@ -65,7 +65,8 @@ const liveTitle = document.getElementById('liveTitle');
       } else if (liveState.activeType === 'award') {
         liveTitle.textContent = liveState.payload.name || '頒獎流程';
         const teams = String(liveState.payload.winnerTeams || '').trim().split(/\s+/).filter(Boolean).map((team) => `Team ${team}`).join(' · ');
-        liveDetail.textContent = `${liveState.stage === 'opening_envelope' ? '開信封' : '下底字卡'}${teams ? ` · ${teams}` : ''}`;
+        const stageLabel = liveState.stage === 'preview' ? '獎項預覽' : liveState.stage === 'opening_envelope' ? '開信封' : '下底字卡';
+        liveDetail.textContent = `${stageLabel}${liveState.stage === 'preview' || !teams ? '' : ` · ${teams}`}`;
       } else if (liveState.activeType === 'ceremony') {
         liveTitle.textContent = liveState.payload.title || '儀式名稱';
         liveDetail.textContent = liveState.payload.subtitle || '';
@@ -86,7 +87,7 @@ const liveTitle = document.getElementById('liveTitle');
       const activeType = message.t === 'g' ? 'guest' : message.t === 'a' ? 'award' : 'none';
       const items = activeType === 'guest' ? data.guests : activeType === 'award' ? data.awards : [];
       const payload = items.find((item) => String(item.id) === String(message.i)) || {};
-      const stage = message.s === 'oe' ? 'opening_envelope' : message.s === 'sl' ? 'showing_lower_third' : message.s;
+      const stage = message.s === 'oe' ? 'opening_envelope' : message.s === 'sl' ? 'showing_lower_third' : message.s === 'pv' ? 'preview' : message.s;
       renderLiveState({ activeType, stage, payload });
     }
 

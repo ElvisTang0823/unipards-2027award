@@ -251,6 +251,54 @@
       transform: translate(-50%, -50%) scale(1);
     }
 
+    #envelopeContainer.is-preview {
+      top: 810px;
+      left: 50%;
+      width: 620px;
+      min-height: 210px;
+      padding: 28px 38px;
+      border-width: 2px;
+      box-shadow: 0 0 32px rgba(212, 175, 55, 0.28);
+    }
+
+    #envelopeContainer.is-visible.is-preview {
+      transform: translate(-50%, 0) scale(1);
+    }
+
+    #envelopeContainer.is-preview:not(.is-visible) {
+      transform: translate(-50%, 28px) scale(.94);
+    }
+
+    #envelopeContainer.is-opening #envAwardName,
+    #envelopeContainer.is-opening #envelopeCard {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+
+    #envelopeContainer.is-opening #envAwardName {
+      transition: opacity 250ms ease, transform 350ms ease;
+    }
+
+    #envelopeContainer.is-opening #envelopeCard {
+      transition: opacity 350ms ease, transform 450ms ease;
+    }
+
+    #envAwardName,
+    #envelopeCard {
+      transition: opacity 350ms ease, transform 450ms ease;
+    }
+
+    #envelopeContainer.is-preview #envAwardName {
+      margin: 0;
+      border: 0;
+      padding: 0;
+      font-size: 2.8rem;
+    }
+
+    #envelopeContainer.is-preview #envelopeCard {
+      display: none;
+    }
+
     #envAwardName {
       font-family: 'GoldenLight', sans-serif;
       font-size: 2.5rem;
