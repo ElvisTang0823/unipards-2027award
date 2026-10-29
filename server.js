@@ -11,8 +11,17 @@ const DATA_FILE = path.join(ROOT, 'data.json');
 const BACKUP_DIR = path.join(ROOT, 'backups');
 const PORT = Number(process.env.PORT || 3000);
 const MAX_REQUEST_BYTES = 1024 * 1024;
+const MAX_TEAM_AVATAR_BYTES = 5 * 1024 * 1024;
+const MAX_TEAM_AVATAR_CACHE_BYTES = 32 * 1024 * 1024;
+const TEAM_AVATAR_CACHE_TTL = 10 * 60 * 1000;
+const MAX_TEAM_AVATAR_CACHE_ENTRIES = 256;
+const TEAM_AVATAR_REQUEST_TIMEOUT = 3000;
 const MAX_WS_CLIENTS = 16;
 const MAX_WS_MESSAGES_PER_SECOND = 20;
+const TEAM_AVATAR_SOURCES = ['10.0.100.5', 'localhost'];
+const teamAvatarCache = new Map();
+const teamAvatarRequests = new Map();
+let teamAvatarCacheBytes = 0;
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -44,6 +53,7 @@ function loadData() {
 let data = loadData();
 let currentState = { t: 'n', i: '', s: 'idle' };
 let tickerVisible = false;
+let watermarkVisible = true;
 let envelopeTimer = null;
 const clients = new Set();
 
@@ -92,6 +102,103 @@ function jsonResponse(response, status, body) {
     'X-Content-Type-Options': 'nosniff'
   });
   response.end(JSON.stringify(body));
+}
+
+function fetchTeamAvatarFromHost(host, teamId) {
+  return new Promise((resolve, reject) => {
+    const request = http.get({
+      hostname: host,
+      port: 8080,
+      path: `/api/teams/${encodeURIComponent(teamId)}/avatar`,
+      timeout: TEAM_AVATAR_REQUEST_TIMEOUT
+    }, (upstream) => {
+      const contentType = String(upstream.headers['content-type'] || '').split(';', 1)[0].toLowerCase();
+      if (upstream.statusCode !== 200 || !/^image\/(?:png|jpeg|webp|gif|avif)$/.test(contentType)) {
+        upstream.resume();
+        reject(new Error(`Avatar source ${host} returned an invalid response`));
+        return;
+      }
+
+      const chunks = [];
+      let size = 0;
+      upstream.on('data', (chunk) => {
+        size += chunk.length;
+        if (size > MAX_TEAM_AVATAR_BYTES) {
+          request.destroy(new Error('Team avatar exceeds the size limit'));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      upstream.on('end', () => {
+        if (size === 0) {
+          reject(new Error(`Avatar source ${host} returned an empty image`));
+          return;
+        }
+        resolve({ body: Buffer.concat(chunks), contentType });
+      });
+      upstream.on('error', reject);
+    });
+
+    request.on('timeout', () => request.destroy(new Error(`Avatar source ${host} timed out`)));
+    request.on('error', reject);
+  });
+}
+
+async function loadTeamAvatar(teamId) {
+  const cached = teamAvatarCache.get(teamId);
+  if (cached && cached.expiresAt > Date.now()) return cached;
+  if (cached) {
+    teamAvatarCache.delete(teamId);
+    teamAvatarCacheBytes -= cached.body.length;
+  }
+
+  const pending = teamAvatarRequests.get(teamId);
+  if (pending) return pending;
+
+  const request = (async () => {
+    let lastError;
+    for (const host of TEAM_AVATAR_SOURCES) {
+      try {
+        const avatar = await fetchTeamAvatarFromHost(host, teamId);
+        const cacheEntry = { ...avatar, expiresAt: Date.now() + TEAM_AVATAR_CACHE_TTL };
+        const previousEntry = teamAvatarCache.get(teamId);
+        if (previousEntry) teamAvatarCacheBytes -= previousEntry.body.length;
+        teamAvatarCache.set(teamId, cacheEntry);
+        teamAvatarCacheBytes += cacheEntry.body.length;
+        while (teamAvatarCache.size > MAX_TEAM_AVATAR_CACHE_ENTRIES || teamAvatarCacheBytes > MAX_TEAM_AVATAR_CACHE_BYTES) {
+          const oldestKey = teamAvatarCache.keys().next().value;
+          const oldestEntry = teamAvatarCache.get(oldestKey);
+          teamAvatarCache.delete(oldestKey);
+          teamAvatarCacheBytes -= oldestEntry.body.length;
+        }
+        return cacheEntry;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error('No team avatar source is available');
+  })();
+
+  teamAvatarRequests.set(teamId, request);
+  try {
+    return await request;
+  } finally {
+    teamAvatarRequests.delete(teamId);
+  }
+}
+
+function warmTeamAvatarCache(awards) {
+  const teamIds = new Set();
+  for (const award of awards) {
+    for (const teamId of String(award.winnerTeams || '').trim().split(/\s+/)) {
+      if (/^[A-Za-z0-9_-]+$/.test(teamId)) teamIds.add(teamId);
+    }
+  }
+  for (const teamId of teamIds) {
+    loadTeamAvatar(teamId).catch((error) => {
+      console.warn(`Failed to prefetch avatar for team ${teamId}: ${error.message}`);
+    });
+  }
 }
 
 function hasAllowedOrigin(request) {
@@ -205,6 +312,7 @@ async function handleRequest(request, response) {
         awards: Array.isArray(nextData.awards) ? nextData.awards : [],
         tickerLines: Array.isArray(nextData.tickerLines) ? nextData.tickerLines : []
       };
+      warmTeamAvatarCache(data.awards);
       broadcast({ e: 'd', d: data });
       jsonResponse(response, 200, { success: true, saved: false });
     } catch (error) {
@@ -231,6 +339,23 @@ async function handleRequest(request, response) {
   }
   if (request.method === 'GET' && pathname === '/api/state') {
     jsonResponse(response, 200, currentState);
+    return;
+  }
+  const teamAvatarRoute = pathname.match(/^\/api\/teams\/([A-Za-z0-9_-]+)\/avatar$/);
+  if (request.method === 'GET' && teamAvatarRoute) {
+    try {
+      const avatar = await loadTeamAvatar(teamAvatarRoute[1]);
+      response.writeHead(200, {
+        'Content-Type': avatar.contentType,
+        'Content-Length': avatar.body.length,
+        'Cache-Control': 'private, max-age=300',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      response.end(avatar.body);
+    } catch (error) {
+      console.warn(`Failed to load avatar for team ${teamAvatarRoute[1]}: ${error.message}`);
+      jsonResponse(response, 502, { error: 'Team avatar is unavailable' });
+    }
     return;
   }
   if (request.method === 'POST' && pathname.startsWith('/api/v1/trigger/')) {
@@ -314,6 +439,7 @@ webSockets.on('connection', (client) => {
   let messageCount = 0;
   send(client, { e: 's', ...currentState });
   send(client, { e: 'k', v: tickerVisible ? 1 : 0 });
+  send(client, { e: 'w', v: watermarkVisible ? 1 : 0 });
   client.on('message', (rawMessage) => {
     const now = Date.now();
     if (now - messageWindowStart >= 1000) {
@@ -334,6 +460,10 @@ webSockets.on('connection', (client) => {
     if (message.e === 't') {
       if (message.t === 'n') {
         setState('n');
+        if (message.clearTicker === true) {
+          tickerVisible = false;
+          broadcast({ e: 'k', v: 0 });
+        }
       } else if (message.t === 'g' && getItem('g', message.i)) {
         setState('g', String(message.i), 'showing');
       } else if (message.t === 'a' && getItem('a', message.i) && ['oe', 'sl'].includes(message.s)) {
@@ -344,6 +474,11 @@ webSockets.on('connection', (client) => {
     if (message.e === 'k') {
       tickerVisible = message.v === 1;
       broadcast({ e: 'k', v: tickerVisible ? 1 : 0 });
+      return;
+    }
+    if (message.e === 'w') {
+      watermarkVisible = message.v === 1;
+      broadcast({ e: 'w', v: watermarkVisible ? 1 : 0 });
     }
   });
   client.on('close', () => clients.delete(client));
@@ -367,6 +502,7 @@ function getLocalIP() {
 
 server.listen(PORT, '0.0.0.0', () => {
   const localIP = getLocalIP();
+  warmTeamAvatarCache(data.awards);
   console.log(`FRC award relay ready at http://${localIP}:${PORT}`);
   console.log(`Control: http://${localIP}:${PORT}/ctrl`);
   console.log(`Overlay: http://${localIP}:${PORT}/overlay`);

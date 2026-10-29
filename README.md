@@ -32,6 +32,12 @@ node server.js
 
 伺服器使用 Node.js 原生 HTTP 與 `ws` WebSocket relay；控制台、Overlay 與 MC 以原生 WebSocket 連線，不載入 Socket.IO、GSAP 或 Pixi CDN。字卡觸發只傳送類型、資料 ID 與階段碼，Overlay/MC 以啟動時讀取的名單還原顯示內容。
 
+頁面 HTML、CSS 與 JavaScript 分別維護；樣式放在 `public/css/`，程式碼放在 `public/js/`。
+
+控制台上方可透過單一按鈕切換 Overlay 浮水印與跑馬燈；伺服器啟動時浮水印預設顯示、跑馬燈預設隱藏。緊急清空字卡時會同步隱藏跑馬燈，但不會清除浮水印。
+
+控制台的得獎隊號與隊伍名稱平時以密碼樣式遮罩，聚焦編輯時顯示內容，離開欄位後重新遮罩。
+
 WebSocket 只接受同源頁面連線，最多 16 個連線、每連線每秒 20 則訊息；HTTP 最多 64 個連線並限制 request timeout。外部自動化請使用具 token 驗證的 REST trigger API。
 
 ## 外部觸發 API
@@ -52,4 +58,4 @@ Content-Type: application/json
 
 伺服器啟動時讀取一次 `data.json`，控制台編輯只更新伺服器記憶體。按「儲存資料」才會寫入 `data.json`；按「儲存備份」則將目前記憶體資料另存到 `backups/`。字卡狀態不寫入 `state.json`。未手動儲存的名單修改會在伺服器重啟後消失。
 
-字型以一年快取標頭提供；Overlay 的 Lower Third 背板由 CSS 生成，不需底圖 PNG。隊徽 PNG 放在 `public/assets/logos/` 並以隊號命名（例如 `6998.png`）；Overlay 會自動載入對應圖片，找不到時使用 `0.png`。
+字型以一年快取標頭提供；Overlay 的 Lower Third 背板由 CSS 生成，不需底圖 PNG。隊伍頭像透過同源 `/api/teams/{teamId}/avatar` API 載入；伺服器會在啟動及獎項資料更新時預熱快取，依序向 `10.0.100.5:8080`、`localhost:8080` 取得圖片並在記憶體快取 10 分鐘。Overlay 會預載獎項隊伍圖片，圖片抵達前立即顯示 `public/assets/logos/0.png`；兩個來源皆失敗時保留備用圖。

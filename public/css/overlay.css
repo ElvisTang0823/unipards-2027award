@@ -1,0 +1,347 @@
+/* 載入指定字型 */
+    @font-face {
+      font-family: 'GoldenBold';
+      src: url('/assets/Bold.ttf') format('truetype');
+      font-weight: bold;
+    }
+
+    @font-face {
+      font-family: 'GoldenLight';
+      src: url('/assets/Light.ttf') format('truetype');
+      font-weight: normal;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background-color: rgba(0, 0, 0, 0);
+    }
+
+    #ltContent {
+      isolation: isolate;
+    }
+
+    #lowerThirdWrapper,
+    #envelopeContainer {
+      z-index: 2;
+      will-change: transform, opacity;
+    }
+
+    .award-team-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      flex: none;
+      white-space: nowrap;
+    }
+
+    .award-team-logo {
+      width: 60px;
+      height: 60px;
+      flex: none;
+      object-fit: contain;
+    }
+
+    .award-team-separator {
+      margin: 0 10px;
+      color: #d0d0d0;
+    }
+
+    /* 下方 Lower Third 置中定位 */
+    #lowerThirdWrapper {
+      position: absolute;
+      top: 810px;
+      left: 50%;
+      transform: translateX(-50%) translateY(40px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: fit-content;
+      max-width: calc(100vw - 120px);
+      min-height: 162px;
+      opacity: 0;
+      transition: opacity 350ms ease, transform 450ms cubic-bezier(.2,.8,.2,1);
+    }
+
+    #lowerThirdWrapper.is-visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #ltBackground {
+      position: absolute;
+      inset: 0;
+      border: 7px solid transparent;
+      border-radius: 8px;
+      background:
+        linear-gradient(110deg, #ff6666 0%, #6666ff 100%) padding-box,
+        linear-gradient(135deg, #fff2a6 0%, #b8860b 18%, #f7dc78 34%, #8f6b16 52%, #fff0a0 70%, #a87913 86%, #f4d76e 100%) border-box;
+      box-shadow: inset 0 0 12px rgba(255, 255, 255, .1);
+      pointer-events: none;
+    }
+
+    #ltContent {
+      position: relative;
+      width: max-content;
+      max-width: 100%;
+      min-height: 162px;
+      padding: 0 54px;
+      display: flex;
+      align-items: center;
+      overflow: visible;
+    }
+
+    /* 嘉賓 Mode */
+    .guest-layout {
+      width: max-content;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .guest-org {
+      font-family: 'GoldenLight', sans-serif;
+      font-size: 1.8rem;
+      color: #ffffff;
+      letter-spacing: 4px;
+      margin: -8px 0 12px;
+      padding: 8px 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+    }
+
+    .guest-name-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      width: max-content;
+      max-width: 100%;
+      gap: 16px;
+      white-space: nowrap;
+    }
+
+    .guest-name {
+      font-family: 'GoldenBold', sans-serif;
+      font-size: 3.4rem;
+      color: #ffffff;
+      letter-spacing: 3px;
+      white-space: nowrap;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, 0.9);
+    }
+
+    .guest-job {
+      font-family: 'GoldenLight', sans-serif;
+      font-size: 2rem;
+      color: #d0d0d0;
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+
+    /* 頒獎 Lower Third Mode */
+    .award-layout {
+      width: max-content;
+      max-width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .award-left {
+      flex: 0 0 auto;
+      max-width: 35%;
+      font-family: 'GoldenLight', sans-serif;
+      font-size: 2.2rem;
+      color: #ffffff;
+      letter-spacing: 4px;
+      padding-left: 20px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+      white-space: nowrap;
+    }
+
+    .award-right {
+      flex: 0 1 auto;
+      width: max-content;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-left: 30px;
+      overflow: visible;
+      border-left: 1px solid rgba(212, 175, 55, 0.3);
+    }
+
+    .award-winner-main {
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      width: max-content;
+      max-width: 100%;
+      overflow: visible;
+      font-family: 'GoldenBold', sans-serif;
+      font-size: 2.7rem;
+      color: #ffffff;
+      letter-spacing: 2px;
+      white-space: nowrap;
+      margin-bottom: 10px;
+    }
+
+    .envelope-team-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+
+    .envelope-team-row .award-team-logo {
+      width: 60px;
+      height: 60px;
+    }
+
+    .envelope-team-row .award-team-item {
+      font-size: 3.2rem;
+    }
+
+    .guest-org,
+    .guest-job,
+    .award-left,
+    .award-winner-main {
+      overflow-wrap: normal;
+      word-break: keep-all;
+    }
+
+    /* 全螢幕開信封卡片排版修正 */
+    #envelopeContainer {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.6);
+      width: 1100px;
+      min-height: 420px;
+      padding: 40px 60px;
+      background: rgba(15, 17, 21, 0.96);
+      border: 2px solid #d4af37;
+      box-shadow: 0 0 60px rgba(212, 175, 55, 0.35);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      color: #fff;
+      border-radius: 12px;
+      opacity: 0;
+      transition: opacity 450ms ease, transform 550ms cubic-bezier(.2,.8,.2,1);
+    }
+
+    #envelopeContainer.is-visible {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    #envAwardName {
+      font-family: 'GoldenLight', sans-serif;
+      font-size: 2.5rem;
+      color: #d4af37;
+      letter-spacing: 3px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+      padding-bottom: 24px;
+      width: 100%;
+    }
+
+    #envelopeCard {
+      font-family: 'GoldenBold', sans-serif;
+      font-size: 3.2rem;
+      color: #ffffff;
+      letter-spacing: 2px;
+      line-height: 1.3;
+      word-break: break-word;
+      width: 100%;
+    }
+
+    #tickerBar {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 50px;
+      z-index: 100;
+      display: flex;
+      overflow: hidden;
+      align-items: center;
+      background: #000;
+      color: #fff;
+      font-family: 'GoldenBold', sans-serif;
+      font-size: 30px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 400ms ease;
+    }
+
+    #tickerBar.where-up {
+      top: 0;
+    }
+
+    #tickerBar.where-down {
+      bottom: 0;
+    }
+
+    #tickerBar.is-visible {
+      opacity: 1;
+    }
+
+    #watermark {
+      position: absolute;
+      right: 50px;
+      bottom: 50px;
+      z-index: 101;
+      height: 70px;
+      width: auto;
+      object-fit: contain;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 350ms ease, visibility 0s linear 350ms;
+    }
+
+    #watermark.is-visible {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 350ms ease, visibility 0s;
+    }
+
+    #watermark.where-top {
+      top: 50px;
+      bottom: auto;
+    }
+
+    #tickerTrack {
+      display: flex;
+      width: max-content;
+      animation: ticker-scroll 30s linear infinite;
+    }
+
+    .ticker-copy {
+      flex: none;
+    }
+
+    @keyframes ticker-scroll {
+      from {
+        transform: translateX(0);
+      }
+
+      to {
+        transform: translateX(-50%);
+      }
+    }
