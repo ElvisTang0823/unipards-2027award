@@ -3,7 +3,7 @@
 ## 專案結構
 
 - `server.js` 使用 Node.js 原生 HTTP 與 `ws` 提供控制台 API、WebSocket relay 及靜態檔案。
-- `public/ctrl.html`、`public/overlay.html`、`public/mc.html` 分別是控制台、OBS 字卡及司儀頁面。
+- `public/ctrl.html`、`public/buttons.html`、`public/overlay.html`、`public/mc.html` 分別是資料控制台、純按鈕控制台、OBS 字卡及司儀頁面。
 - 頁面樣式放在 `public/css/`，頁面程式碼放在 `public/js/`；HTML 僅放頁面結構，不新增內嵌 `<style>`、`<script>`、`style` 屬性或 inline 事件處理器。
 - 資料由 `data.json` 提供；修改資料結構或 API 時，需同步檢查控制台、Overlay、司儀頁面及 README。
 
@@ -15,7 +15,7 @@
 - 跑馬燈透過控制台上方的單一切換按鈕控制；緊急清空會同步隱藏跑馬燈。
 - 儀式名稱清單儲存在 `data.json` 的 `ceremonies` 陣列（每筆含 `id`、`title`、`subtitle`）；左下角綵帶預設隱藏，且與嘉賓/頒獎字卡互斥。
 - 保留伺服器的同源 WebSocket、外部 API token 驗證及資料明確儲存行為。
-- 控制台與司儀頁的存取驗證必須由伺服器端執行；密碼只從被 Git 忽略的 `.env` `AUTH_PASSWORD` 讀取，不得加入前端或提交密碼。修改受保護頁面/API/WS 時要保留 session 驗證。
+- 資料控制台、按鈕控制台與司儀頁的存取驗證必須由伺服器端執行；密碼只從被 Git 忽略的 `.env` `AUTH_PASSWORD` 讀取，不得加入前端或提交密碼。修改受保護頁面/API/WS 時要保留 session 驗證。
 - 只修改任務相關內容，避免覆蓋工作目錄中既有的未提交變更。
 
 ## 執行與驗證

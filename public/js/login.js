@@ -6,7 +6,7 @@ form.addEventListener('submit', async (event) => {
   event.preventDefault();
   message.textContent = '';
   const next = new URLSearchParams(window.location.search).get('next');
-  const destination = next === '/mc' ? '/mc' : '/ctrl';
+  const destination = ['/buttons', '/mc'].includes(next) ? next : '/ctrl';
   try {
     const response = await fetch('/api/auth/login', {
       method: 'POST',

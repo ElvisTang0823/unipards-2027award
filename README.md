@@ -4,7 +4,7 @@
 
 專案已附 Node.js 執行檔。將整個專案資料夾複製到另一台電腦，雙擊 `Start NKS Award.bat` 即可啟動；目標電腦不需安裝 Node.js、npm 或其他插件。請勿只複製 `server.js`，`node.exe`、`node_modules/`、`data.json` 與 `public/` 都必須保留。
 
-如需限制存取，將 `.env.example` 複製為 `.env` 並設定只有工作人員知道的 `AUTH_PASSWORD`；控制台與司儀頁會要求此密碼。若 `AUTH_PASSWORD` 留空或未設定，則不啟用密碼，控制台與司儀頁可直接瀏覽。`.env` 已加入 Git 忽略清單，請勿提交密碼。
+如需限制存取，將 `.env.example` 複製為 `.env` 並設定只有工作人員知道的 `AUTH_PASSWORD`；控制台、按鈕控制台與司儀頁會要求此密碼。若 `AUTH_PASSWORD` 留空或未設定，則不啟用密碼，以上頁面可直接瀏覽。`.env` 已加入 Git 忽略清單，請勿提交密碼。
 
 啟動後可在本機開啟 `http://localhost:3000/ctrl`。若要使用外部觸發 API，請在 `.env` 設定 `EXT_API_TOKEN`。
 
@@ -17,7 +17,7 @@ AUTH_PASSWORD=replace-with-a-long-random-password
 EXT_API_TOKEN=replace-with-a-long-random-token
 ```
 
-`AUTH_PASSWORD` 可留空；空值代表不啟用頁面密碼，非空才會保護 `/ctrl` 與 `/mc`。`EXT_API_TOKEN` 未設定時外部觸發 API 會拒絕請求。設定後啟動伺服器：
+`AUTH_PASSWORD` 可留空；空值代表不啟用頁面密碼，非空才會保護 `/ctrl`、`/buttons` 與 `/mc`。`EXT_API_TOKEN` 未設定時外部觸發 API 會拒絕請求。設定後啟動伺服器：
 
 ```powershell
 node server.js
@@ -32,13 +32,14 @@ node server.js
 ## 網址
 
 - 控制台：`http://localhost:3000/ctrl`
+- 按鈕控制台（純按鈕操作）：`http://localhost:3000/buttons`
 - OBS 下方 overlay：`http://localhost:3000/overlay?where=down`
 - OBS 上方 overlay：`http://localhost:3000/overlay?where=up`
 - 司儀專頁：`http://localhost:3000/mc`
 
 伺服器啟動後會顯示區網網址，可供同一網路的設備使用。
 
-當 `AUTH_PASSWORD` 非空時，`/ctrl`、`/mc` 及其 HTML 直連都由伺服器端 session 驗證保護，登入有效期為 8 小時；隱藏或修改瀏覽器頁面元素不能略過驗證。控制台資料寫入與 WebSocket 控制訊息也需要有效登入。一般 HTTP 連線不會加密密碼或 Cookie，若在不可信任的網路使用，請先部署於 HTTPS 反向代理後方。
+當 `AUTH_PASSWORD` 非空時，`/ctrl`、`/buttons`、`/mc` 及其 HTML 直連都由伺服器端 session 驗證保護，登入有效期為 8 小時；隱藏或修改瀏覽器頁面元素不能略過驗證。控制台資料寫入與 WebSocket 控制訊息也需要有效登入。一般 HTTP 連線不會加密密碼或 Cookie，若在不可信任的網路使用，請先部署於 HTTPS 反向代理後方。
 
 伺服器使用 Node.js 原生 HTTP 與 `ws` WebSocket relay；控制台、Overlay 與 MC 以原生 WebSocket 連線，不載入 Socket.IO、GSAP 或 Pixi CDN。字卡觸發只傳送類型、資料 ID 與階段碼，Overlay/MC 以啟動時讀取的名單還原顯示內容。
 

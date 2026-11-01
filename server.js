@@ -441,6 +441,8 @@ async function handleRequest(request, response) {
     ['/', '/ctrl'],
     ['/ctrl', '/ctrl'],
     ['/ctrl.html', '/ctrl'],
+    ['/buttons', '/buttons'],
+    ['/buttons.html', '/buttons'],
     ['/mc', '/mc'],
     ['/mc.html', '/mc']
   ]);
@@ -553,6 +555,7 @@ async function handleRequest(request, response) {
   const routeFiles = {
     '/': 'ctrl.html',
     '/ctrl': 'ctrl.html',
+    '/buttons': 'buttons.html',
     '/login': 'login.html',
     '/overlay': 'overlay.html',
     '/mc': 'mc.html'
@@ -703,13 +706,14 @@ function getLocalIP() {
 server.listen(PORT, '0.0.0.0', () => {
   const localIP = getLocalIP();
   if (AUTH_ENABLED) {
-    console.log('Password protection is enabled for /ctrl and /mc.');
+    console.log('Password protection is enabled for /ctrl, /buttons and /mc.');
   } else {
-    console.log('AUTH_PASSWORD is empty; /ctrl and /mc are open without login.');
+    console.log('AUTH_PASSWORD is empty; /ctrl, /buttons and /mc are open without login.');
   }
   warmTeamAvatarCache(data.awards);
   console.log(`FRC award relay ready at http://${localIP}:${PORT}`);
   console.log(`Control: http://${localIP}:${PORT}/ctrl`);
+  console.log(`Button control: http://${localIP}:${PORT}/buttons`);
   console.log(`Overlay: http://${localIP}:${PORT}/overlay`);
   console.log(`MC: http://${localIP}:${PORT}/mc`);
 });

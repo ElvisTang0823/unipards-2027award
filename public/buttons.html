@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#121418">
+  <title>按鈕控制台 | NKS Award</title>
+  <link rel="stylesheet" href="/css/buttons.css">
+</head>
+<body>
+  <header class="toolbar">
+    <h1>導播控制</h1>
+    <div class="toolbar-actions">
+      <span id="connectionStatus" class="connection-status" role="status" aria-label="連線中…" aria-live="polite"></span>
+      <a class="button-link" href="/ctrl">設定</a>
+    </div>
+  </header>
+  <main>
+    <section class="global-controls" aria-label="全域控制">
+      <button class="control-button btn-danger" type="button" data-action="emergency-clear">清空</button>
+      <button id="tickerToggle" class="control-button btn-show" type="button" data-action="toggle-ticker">跑馬燈 開</button>
+      <button id="watermarkToggle" class="control-button btn-hide" type="button" data-action="toggle-watermark">浮水印 關</button>
+    </section>
+    <p id="pageStatus" class="page-status" role="status" aria-live="polite"></p>
+    <section aria-labelledby="guestHeading">
+      <h2 id="guestHeading">嘉賓</h2>
+      <div id="guestControls" class="control-grid"></div>
+    </section>
+    <section aria-labelledby="awardHeading">
+      <h2 id="awardHeading">獎項</h2>
+      <div id="awardControls" class="control-grid"></div>
+    </section>
+    <section aria-labelledby="ceremonyHeading">
+      <h2 id="ceremonyHeading">儀式</h2>
+      <div id="ceremonyControls" class="control-grid"></div>
+    </section>
+  </main>
+  <script src="/js/buttons.js" defer></script>
+</body>
+</html>
