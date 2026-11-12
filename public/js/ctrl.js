@@ -1,7 +1,9 @@
 const pendingMessages = [];
-    let db = { guests: [], awards: [], tickerLines: [''] };
+    let db = { guests: [], awards: [], tickerLines: [''], sponsorSlides: [] };
 let watermarkVisible = true;
     let tickerVisible = false;
+    let overlayPosition = 'bottom';
+    let audiencePosition = 'bottom';
     let activeCeremonyId = '';
     let activeProgramState = { t: 'n', i: '', s: 'idle' };
     let socket;
@@ -20,6 +22,16 @@ function setTickerVisible(visible) {
   button.textContent = visible ? '隱藏跑馬燈' : '顯示跑馬燈';
   button.classList.toggle('btn-hide', visible);
   button.classList.toggle('btn-show', !visible);
+}
+
+function updateOverlayPositionButton() {
+  const button = document.getElementById('overlayPositionToggle');
+  button.textContent = `Overlay 位置：${overlayPosition === 'top' ? '上方' : '下方'}`;
+}
+
+function updateAudiencePositionButton() {
+  const button = document.getElementById('audiencePositionToggle');
+  button.textContent = `Audience 顯示位置：${audiencePosition === 'top' ? '上方' : '下方'}`;
 }
 
 function setCeremonyState(visible, ceremonyId = '') {
@@ -59,6 +71,14 @@ function connectSocket() {
     }
     if (message.e === 'w') setWatermarkVisible(message.v === 1);
     if (message.e === 'k') setTickerVisible(message.v === 1);
+    if (message.e === 'p' && (message.v === 'top' || message.v === 'bottom')) {
+      overlayPosition = message.v;
+      updateOverlayPositionButton();
+    }
+    if (message.e === 'audience-position' && (message.v === 'top' || message.v === 'bottom')) {
+      audiencePosition = message.v;
+      updateAudiencePositionButton();
+    }
     if (message.e === 'c') setCeremonyState(message.v === 1, message.i || '');
   });
   socket.addEventListener('open', () => {
@@ -77,6 +97,7 @@ function connectSocket() {
       const res = await fetch('/api/data');
       db = await res.json();
       if (!Array.isArray(db.tickerLines)) db.tickerLines = [''];
+      if (!Array.isArray(db.sponsorSlides)) db.sponsorSlides = [];
       if (!Array.isArray(db.ceremonies)) {
         db.ceremonies = db.ceremony && (db.ceremony.title || db.ceremony.subtitle)
           ? [{ id: 'ceremony_legacy', title: db.ceremony.title || '', subtitle: db.ceremony.subtitle || '' }]
@@ -84,6 +105,7 @@ function connectSocket() {
       }
       renderTables();
       renderCeremonies();
+      renderSponsorSlides();
       renderTickerLines();
     }
 
@@ -149,6 +171,26 @@ function connectSocket() {
       }).join('');
     }
 
+    function renderSponsorSlides() {
+      const body = document.querySelector('#sponsorTable tbody');
+      body.innerHTML = db.sponsorSlides.map((slide, index) => `
+        <tr>
+          <td>
+            <select data-entity="sponsor" data-index="${index}" data-field="type">
+              <option value="image" ${slide.type === 'image' ? 'selected' : ''}>圖片</option>
+              <option value="text" ${slide.type === 'text' ? 'selected' : ''}>文字</option>
+            </select>
+          </td>
+          <td><input type="text" value="${escapeAttribute(slide.image)}" placeholder="sponsor.png" data-entity="sponsor" data-index="${index}" data-field="image" ${slide.type !== 'image' ? 'disabled' : ''}></td>
+          <td><input type="text" value="${escapeAttribute(slide.line1)}" data-entity="sponsor" data-index="${index}" data-field="line1" ${slide.type !== 'text' ? 'disabled' : ''}></td>
+          <td><input type="text" value="${escapeAttribute(slide.line2)}" data-entity="sponsor" data-index="${index}" data-field="line2" ${slide.type !== 'text' ? 'disabled' : ''}></td>
+          <td><input type="text" value="${escapeAttribute(slide.subtitle)}" data-entity="sponsor" data-index="${index}" data-field="subtitle"></td>
+          <td><input type="number" min="1" max="600" step="1" value="${slide.displayTimeSec}" data-entity="sponsor" data-index="${index}" data-field="displayTimeSec"></td>
+          <td class="actions-cell"><button class="btn-hide" data-action="delete-sponsor-slide" data-index="${index}">刪除</button></td>
+        </tr>
+      `).join('');
+    }
+
     async function saveData() {
       const response = await fetch('/api/data', {
         method: 'POST',
@@ -157,6 +199,12 @@ function connectSocket() {
       });
       if (!response.ok) throw new Error('資料儲存失敗');
       document.getElementById('saveStatus').textContent = '變更暫存於伺服器記憶體';
+    }
+
+    function saveSponsorChanges() {
+      saveData().catch((error) => {
+        document.getElementById('saveStatus').textContent = error.message;
+      });
     }
 
     async function saveNow() {
@@ -238,6 +286,18 @@ function connectSocket() {
       sendMessage({ e: 'w', v: watermarkVisible ? 1 : 0 });
     }
 
+    function toggleOverlayPosition() {
+      overlayPosition = overlayPosition === 'top' ? 'bottom' : 'top';
+      updateOverlayPositionButton();
+      sendMessage({ e: 'p', v: overlayPosition });
+    }
+
+    function toggleAudiencePosition() {
+      audiencePosition = audiencePosition === 'top' ? 'bottom' : 'top';
+      updateAudiencePositionButton();
+      sendMessage({ e: 'audience-position', v: audiencePosition });
+    }
+
     function toggleCeremony(index) {
       const ceremony = db.ceremonies[index];
       if (!ceremony) return;
@@ -260,6 +320,27 @@ function connectSocket() {
       }
       saveData();
       renderCeremonies();
+    }
+
+    function addSponsorSlide(type) {
+      db.sponsorSlides.push({
+        id: `s_${Date.now()}`,
+        type,
+        image: type === 'image' ? 'sponsor.png' : '',
+        line1: '',
+        line2: '',
+        subtitle: '',
+        displayTimeSec: 10
+      });
+      renderSponsorSlides();
+      saveSponsorChanges();
+    }
+
+    function deleteSponsorSlide(index) {
+      if (!db.sponsorSlides[index]) return;
+      db.sponsorSlides.splice(index, 1);
+      renderSponsorSlides();
+      saveSponsorChanges();
     }
 
     function addGuestRow() {
@@ -313,6 +394,14 @@ function connectSocket() {
 
     document.addEventListener('change', (event) => {
       const input = event.target;
+      if (input instanceof HTMLSelectElement && input.dataset.entity === 'sponsor') {
+        const index = Number(input.dataset.index);
+        if (!db.sponsorSlides[index]) return;
+        db.sponsorSlides[index].type = input.value;
+        renderSponsorSlides();
+        saveSponsorChanges();
+        return;
+      }
       if (!(input instanceof HTMLInputElement) || !input.dataset.entity) return;
       const index = Number(input.dataset.index);
       if (input.dataset.entity === 'guest') updateGuest(index, input.dataset.field, input.value);
@@ -320,6 +409,11 @@ function connectSocket() {
       if (input.dataset.entity === 'ceremony') {
         db.ceremonies[index][input.dataset.field] = input.value;
         saveData();
+      }
+      if (input.dataset.entity === 'sponsor' && db.sponsorSlides[index]) {
+        const value = input.dataset.field === 'displayTimeSec' ? Number(input.value) : input.value;
+        db.sponsorSlides[index][input.dataset.field] = value;
+        saveSponsorChanges();
       }
     });
 
@@ -350,8 +444,13 @@ function connectSocket() {
         case 'add-guest': addGuestRow(); break;
         case 'add-award': addAwardRow(); break;
         case 'add-ceremony': addCeremony(); break;
+        case 'add-sponsor-image': addSponsorSlide('image'); break;
+        case 'add-sponsor-text': addSponsorSlide('text'); break;
+        case 'delete-sponsor-slide': deleteSponsorSlide(index); break;
         case 'add-ticker-line': addTickerLine(); break;
         case 'toggle-watermark': toggleWatermark(); break;
+        case 'toggle-overlay-position': toggleOverlayPosition(); break;
+        case 'toggle-audience-position': toggleAudiencePosition(); break;
         case 'toggle-ceremony': toggleCeremony(index); break;
         case 'delete-ceremony': deleteCeremony(index); break;
         case 'toggle-guest': toggleGuest(index); break;
@@ -362,3 +461,5 @@ function connectSocket() {
     });
 
     init();
+    updateOverlayPositionButton();
+    updateAudiencePositionButton();

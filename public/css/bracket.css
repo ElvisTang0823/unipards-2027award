@@ -1,0 +1,51 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: linear-gradient(180deg, #003a4d 1%, #174d5f 60%, #59a0b5 100%);
+  font-family: Arial, sans-serif;
+}
+
+.bracket-display {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.bracket-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.bracket-image[hidden] {
+  display: none;
+}
+
+.bracket-status {
+  position: fixed;
+  right: 12px;
+  bottom: 8px;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #fff;
+  background: rgb(0 0 0 / 55%);
+  font-size: 13px;
+}
+
+.bracket-status[hidden] {
+  display: none;
+}

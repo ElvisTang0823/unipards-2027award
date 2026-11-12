@@ -1,0 +1,1030 @@
+/*
+  Copyright 2014 Team 254. All Rights Reserved.
+  Author: pat@patfairbank.com (Patrick Fairbank)
+*/
+
+@font-face {
+  font-family: FuturaLT;
+  src: url("/static/css/fonts/futura-lt.otf") format("opentype");
+}
+@font-face {
+  font-family: FuturaLTBold;
+  src: url("/static/css/fonts/futura-lt-bold.otf") format("opentype");
+}
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  cursor: none;
+  user-select: none;
+  background: transparent;
+  color: #fff;
+  font-family: FuturaLT, Arial, sans-serif;
+}
+html {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+}
+.text-center {
+  text-align: center;
+}
+#overlayCentering {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 170px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 4;
+  transition: none;
+}
+#matchOverlayContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+#matchOverlay {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #222;
+  color: #222;
+  font-size: 22px;
+}
+#matchOverlayTop {
+  height: 100px;
+  display: flex;
+}
+.playoff-alliance {
+  position: relative;
+  top: 31px;
+  width: 40px;
+  height: 40px;
+  padding: 0 5px;
+  z-index: -1;
+  display: none;
+  align-items: center;
+  background-color: #fc0;
+  color: #222;
+  border: 1px solid #222;
+  font-size: 15px;
+  font-weight: 200;
+}
+#leftPlayoffAlliance {
+  left: 23px;
+  justify-content: flex-start;
+  border-top-left-radius: 50%;
+  border-bottom-left-radius: 50%;
+  border-right: none;
+}
+#rightPlayoffAlliance {
+  right: 23px;
+  justify-content: flex-end;
+  border-top-right-radius: 50%;
+  border-bottom-right-radius: 50%;
+  border-left: none;
+}
+.teams {
+  width: 70px;
+  height: 100%;
+  display: none;
+  flex-direction: column;
+  justify-content: space-evenly;
+  align-items: center;
+  background-color: #fff;
+  font-family: FuturaLT, Arial, sans-serif;
+  font-size: 20px;
+  line-height: 25px;
+}
+.teams div {
+  width: 90%;
+  height: 32%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.teams div[data-yellow-card="true"] {
+  border-radius: 0.2vw;
+  background-color: #fc0;
+}
+#leftTeams {
+  border-right: 1px solid #222;
+}
+#rightTeams {
+  border-left: 1px solid #222;
+}
+.score {
+  display: flex;
+  justify-content: flex-start;
+  width: 0;
+  height: 100%;
+}
+.score-right {
+  justify-content: flex-end;
+}
+.reversible-left[data-reversed="false"],
+.reversible-right[data-reversed="true"] {
+  background-color: #ff4444;
+}
+.reversible-left[data-reversed="true"],
+.reversible-right[data-reversed="false"] {
+  background-color: #2080ff;
+}
+.avatars {
+  min-width: 50px;
+  height: 100%;
+  display: none;
+  flex-direction: column;
+  justify-content: space-evenly;
+  align-items: center;
+}
+.avatar {
+  height: 25px;
+}
+.score-number {
+  width: 130px;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: FuturaLTBold, Arial, sans-serif;
+  font-size: 55px;
+  color: #fff;
+  opacity: 0;
+}
+.score-fields {
+  height: 100%;
+  width: 0;
+  display: none;
+  flex-direction: row;
+  opacity: 0;
+}
+.score-right .score-fields {
+  justify-content: flex-end;
+}
+.score-fuel {
+  width: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: FuturaLTBold, Arial, sans-serif;
+  color: #fff;
+}
+.score-fuel > span {
+  font-size: 27px;
+  line-height: 40px;
+}
+.score-fuel > span:last-child {
+  border-top: 2px solid rgba(255, 255, 255, 0.6);
+}
+.score-hub-active {
+  width: 70px;
+  margin: 0 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.progress-guide,
+.active-progress,
+.progress-time {
+  opacity: 0;
+  transition: opacity 300ms linear;
+}
+.score-hub-active[data-active="true"] .progress-guide,
+.score-hub-active[data-active="true"] .active-progress,
+.score-hub-active[data-active="true"] .progress-time {
+  opacity: 1;
+}
+.score-hub-active[data-active="true"] .progress-guide {
+  opacity: 0.35;
+}
+.active-progress {
+  stroke: #fc3;
+}
+.progress-time {
+  font-family: FuturaLTBold, Arial, sans-serif;
+  font-size: 23px;
+  dominant-baseline: middle;
+}
+#matchCircle {
+  position: absolute;
+  top: -25px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background-color: #fff;
+  border: 1px solid #222;
+}
+#logo {
+  position: relative;
+  top: 55px;
+  height: 40px;
+}
+#matchTime {
+  position: relative;
+  top: 40px;
+  height: 60px;
+  color: #222;
+  font-family: FuturaLTBold, Arial, sans-serif;
+  font-size: 32px;
+  opacity: 0;
+}
+#eventMatchInfo {
+  height: 0;
+  display: none;
+  justify-content: space-between;
+  z-index: -1;
+  align-items: flex-end;
+  padding: 0 5px;
+  background-color: #444;
+  font-family: FuturaLT, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 30px;
+  color: #fff;
+}
+#eventMatchInfo > span:first-child {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+#matchName {
+  min-width: 0;
+  margin-left: 12px;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#playoffSeriesStatus {
+  display: none;
+  width: 40px;
+  height: 18px;
+  justify-content: center;
+  align-items: center;
+  background-color: #fc0;
+  color: #222;
+  border: 1px solid #222;
+  border-top: none;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  font-size: 15px;
+  font-weight: 200;
+}
+#timeoutDetails {
+  position: absolute;
+  bottom: 0;
+  width: 100vw;
+  height: 110px;
+  padding: 0 20px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  color: #222;
+  opacity: 0;
+  background-image: url("/assets/scoreboard/alliance_selection_background.png");
+  background-repeat: no-repeat;
+}
+.timeout-text {
+  font-size: 36px;
+  font-weight: bold;
+}
+#timeoutDetails > div {
+  margin: 0 10px;
+}
+.timeout-text-timer {
+  width: 32%;
+}
+#Timeout-timer {
+  width: 200px;
+  height: 80px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #59a0b5;
+  color: #fff;
+  font-size: 50px;
+  font-weight: bold;
+}
+.timeout-text-match {
+  width: 18%;
+}
+.timeout-match {
+  width: 38%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  color: #fff;
+  font-weight: bold;
+}
+#Timeout-Name {
+  box-sizing: border-box;
+  height: 45px;
+  width: 100%;
+  padding: 0 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background-color: #59a0b5;
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.timeout-match-info {
+  width: 100%;
+  height: 45px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: row;
+  font-size: 30px;
+  line-height: 1;
+  text-align: center;
+  margin-top: 5px;
+}
+#timeout-match-left,
+#timeout-match-right {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  white-space: nowrap;
+}
+#timeout-match-vs {
+  width: 10%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #fff;
+  color: #000;
+  margin: 0 5%;
+}
+.timeout-match-red {
+  background-color: #ed1c24;
+}
+.timeout-match-blue {
+  background-color: #0066b3;
+}
+#audienceConnectionStatus {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+  padding: 8px 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  font: 16px sans-serif;
+}
+#audienceConnectionStatus[data-visible="false"] {
+  display: none;
+}
+#shiftCounter,
+#shiftTime,
+#allianceSelectionBackground,
+#allianceSelectionCentering,
+#allianceRankingsCentering,
+#allianceTimerBox {
+  display: none;
+}
+
+#overlayCentering {
+  bottom: -210px;
+}
+#blindsContainer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+.blinds {
+  position: fixed;
+  top: 0;
+  background-size: 200%;
+  height: 100%;
+  width: 50%;
+  overflow: hidden;
+}
+.blinds.left {
+  background-position: left;
+  left: -50%;
+}
+.blinds.right {
+  background-position: right;
+  right: -50%;
+}
+.blinds.full {
+  width: 100%;
+  background-position: center;
+  background-size: 100%;
+}
+.blinds.background {
+  background-image: url("/assets/scoreboard/background_true.jpeg");
+  opacity: 0.8;/*準備match info要半透明背景*/
+}
+body[data-reversed="false"] .blinds.background {
+  background-image: url("/assets/scoreboard/background_false.jpeg");
+  opacity: 0.8;/*準備match info要半透明背景*/
+}
+.blindsCenter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  margin: auto auto;
+  border-radius: 50%;
+  width: 310px;
+  height: 310px;
+  background-color: #fff;
+  border: 1px solid #333;
+  box-shadow: 0 0 5px #666;
+  text-align: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  z-index: 2;
+}
+.blindsCenter.full {
+  left: 0;
+  right: 0;
+  transform: rotateY(-180deg);
+}
+.blinds.left .blindsCenter.blank {
+  right: -155px;
+}
+.blinds.full .blindsCenter.blank {
+  right: 0;
+  left: 0;
+}
+.blinds.right .blindsCenter.blank {
+  left: -155px;
+}
+#blindsLogo {
+  position: relative;
+  top: 55px;
+  height: 220px;
+}
+#finalScoreCentering {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+#finalScore {
+  position: relative;
+  width: 1000px;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #333;
+  opacity: 0;
+}
+#finalResultIndicators {
+  position: absolute;
+  top: -63px;
+  left: 0;
+  right: 0;
+  height: 63px;
+  display: flex;
+  pointer-events: none;
+}
+.final-result-indicator-slot {
+  width: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+.final-result-indicator-slot:first-child {
+  padding-right: 150px;
+}
+.final-result-indicator-slot:last-child {
+  padding-left: 150px;
+}
+.final-result-indicator, #finalTiebreakReason {
+  min-width: 270px;
+  height: 63px;
+  padding: 0 36px;
+  border: 2px solid #333;
+  border-radius: 0;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  background-color: #fc3;
+  color: #222;
+  font-family: "FuturaLTBold";
+  font-size: 36px;
+  line-height: 63px;
+  text-align: center;
+}
+#finalTiebreakReason {
+  position: absolute;
+  bottom: -63px;
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin: 0 auto;
+  pointer-events: none;
+}
+.final-result-indicator[data-result=tie] {
+  background-color: #999;
+}
+.final-result-indicator[data-result=winner], .final-result-indicator[data-result=tie] {
+  display: flex;
+}
+#finalTiebreakReason[data-visible=true] {
+  display: flex;
+}
+.final-score-row {
+  display: flex;
+  flex-direction: row;
+}
+.final-score {
+  width: 50%;
+  height: 200px;
+  line-height: 200px;
+  border-bottom: 2px solid #333;
+  color: #fff;
+  font-family: "FuturaLTBold";
+  font-size: 100px;
+  text-align: center;
+  text-shadow: 0 0 3px #333;
+}
+.RedGetRP{
+  filter: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"><filter id="blackToExactRed" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.071 0 0 0 0.929   0 0.890 0 0 0.110   0 0 0.859 0 0.141   0 0 0 1 0"/></filter></svg>#blackToExactRed');
+  box-shadow: 0 0 5px #666;
+}
+.BlueGetRP{
+  filter: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"><filter id="blackToBlue" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0.000   0 0.600 0 0 0.400   0 0 0.298 0 0.702   0 0 0 1 0"/></filter></svg>#blackToBlue');
+  box-shadow: 0 0 5px #666;
+}
+.NoGetRP{
+  opacity: 0.6;
+  box-shadow: 0 0 5px #666;
+}
+.RP-block{
+  width:40px;
+  height:40px;
+  margin:0px 2px;
+}
+#winVideoPlayer{
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  z-index: 9999;
+  background:transparent;
+}
+#leftFinalScore {
+  padding-right: 150px;
+}
+#rightFinalScore {
+  padding-left: 150px;
+}
+.final-breakdown {
+  height: 380px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: #fff;
+  color: #222;
+  font-family: "FuturaLT";
+  font-size: 24px;
+}
+#leftFinalBreakdown {
+  width: 60px;
+  padding-right: 10px;
+  align-items: flex-end;
+}
+#rightFinalBreakdown {
+  width: 60px;
+  padding-left: 10px;
+  align-items: flex-start;
+}
+#centerFinalBreakdown {
+  width: 280px;
+  align-items: center;
+  text-align: center;
+  border-left: 2px solid #333;
+  border-right: 2px solid #333;
+}
+.final-breakdown-teams {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.final-teams {
+  width: 250px;
+  padding: 20px;
+  border-radius: 20px;
+}
+.final-alliance {
+  margin-top: -10px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  color: #fff;
+  font-size: 24px;
+}
+.final-team-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+.final-team-avatar {
+  width: 35px;
+  height: 35px;
+  margin-right: 5px;
+}
+.final-team-number {
+  width: 85px;
+  color: #fff;
+  font-family: "FuturaLT";
+  font-size: 32px;
+  line-height: 43px;
+  text-align: center;
+}
+.final-team-card {
+  width: 20px;
+  margin-left: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.final-team-card div {
+  display: none;
+}
+.final-team-card div[data-card=yellow], .final-team-card div[data-card=red] {
+  display: inline-block;
+  width: 15px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #333;
+}
+.final-team-card div[data-card=yellow] {
+  background-color: #da1;
+}
+.final-team-card div[data-card=red] {
+  background-color: #e00;
+}
+.final-team-rank {
+  width: 50px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+}
+.final-team-rank img {
+  width: 15px;
+  margin-right: 3px;
+}
+.final-team-rank div {
+  color: #fff;
+  font-size: 20px;
+}
+
+
+.final-rank-point{
+  display: flex;
+  flex-wrap: wrap; /* 允許子元素超出容器時自動換行 */
+  justify-content: center;
+  margin: 15px 0px;
+  font-size: 0px;
+}
+.final-rank-point-text{
+  width: 100%;
+  text-align: center;
+  font-family: "FuturaLTBold";
+    font-size: 20px;
+}
+
+
+.final-destination {
+  margin-top: 10px;
+  width: 200px;
+  height: 45px;
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background-color: #999;
+  font-size: 15px;
+  line-height: 18px;
+}
+.final-destination[data-won=true] {
+  background-color: #fc3;
+}
+#finalEventMatchInfo {
+  height: 60px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 25px;
+  font-family: "FuturaLT";
+  font-size: 28px;
+  background-color: #444;
+  color: #fff;
+}
+[data-checked=true] {
+  color: #0c0;
+}
+[data-checked=false] {
+  color: #e00;
+}
+.final-footer {
+  float: left;
+  width: 33.3%;
+  white-space: nowrap;
+}
+#finalMatchName {
+  text-align: right;
+}
+#bracket {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: auto auto;
+  z-index: 1;
+  opacity: 0;
+  text-align: center;
+}
+#bracketSvg {
+  width: 1920px;
+}
+#sponsor {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: auto auto;
+  border: 2px solid #333;
+  z-index: 1;
+  opacity: 0;
+  background-color: #fff;
+  text-align: center;
+}
+#sponsor .carousel-inner, #sponsor .carousel-item {
+  height: 100%;
+}
+.sponsor-image-container {
+  width: 100vw;
+  height: 100vh;
+  display: table-cell;
+  vertical-align: middle;
+}
+#sponsor h1, #sponsor h2 {
+  font-family: 'Arboto Bold', sans-serif;
+  font-weight: 700;  /* bold */
+  margin: 0;
+}
+#sponsor h1 {
+  font-size: 60px;
+  background-color: #444;
+  color: #00000000;
+  /*padding: 0.25em;*/
+}
+.sponsor-bottom {
+  position: absolute;
+  left: 0;
+  top: auto !important;
+  bottom: 0 !important;
+  width: 100%;
+  height: auto;
+  display: block;
+}
+#sponsor h2 {
+  font-size: 6em;
+  padding-top: calc((100vh - 100vw * (166 / 1920)) / 2 - 110px);
+  line-height: 110px;
+}
+#sponsor img {
+  max-width: 100vw;
+  max-height: 100vh;
+  top:0px;
+}
+#allianceSelectionBackground {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.alliance-selection-bg {
+  --x: 4vw;
+  --y: 4vh;
+  --w: 50vw;
+  --h: 50vh;
+  mask-image: 
+    linear-gradient(black, black), 
+    linear-gradient(black, black);
+  mask-composite: exclude; 
+  -webkit-mask-position: 0 0, var(--x) var(--y);
+  -webkit-mask-size: 100% 100%, var(--w) var(--h);
+  -webkit-mask-repeat: no-repeat;
+}
+.alliance-selection-video-frame {
+  position: absolute;
+  left: 4vw;
+  top: 4vh;
+  width: 50vw;
+  height: 50vh;
+  border: 0.4vw solid #59a0b5;
+  box-sizing: border-box;
+  box-shadow: 0 0.4vw 1vw rgba(0, 0, 0, 0.18);
+}
+#allianceRankingsCentering {
+  position: absolute;
+  /*height: 100%;*/
+  left: 4vw;
+  /*top: 3em;*/
+  bottom: 8em;
+}
+.rankings-header-title {
+  font-weight: 800;
+  font-size: 40px;
+  color: #000;
+  margin-bottom: 0.5em;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+#allianceRankings {
+  max-width: 50vw;
+  display: grid;
+  grid-template-rows: repeat(4, auto);
+  grid-auto-flow: column;
+  overflow: hidden;
+  /*background-color: #fff;
+  border: 2px solid #222;*/
+  font-size: 2em;
+  font-family: "FuturaLT";
+  gap: 0.25em;
+}
+.unpicked {
+  /*width: 5.5em;*/
+  display: flex;
+  justify-content: start;
+  overflow: hidden;
+  height: 1.7em;
+  margin-right: 0.2em;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  font-weight: 800;
+}
+.unpicked-rank {
+  width: 2.2em;
+  /*text-align: right;
+  color: #999;*/
+  background-color: #5fb1d5;
+  color: #fff;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.unpicked-rank[data-captain="true"]{
+  background-color: #003a4d;
+}
+.unpicked-team {
+  /*margin-left: 0.3em;
+  color: #222;*/
+  width: 4em;
+  background-color: #fff;
+  color: #000;
+  font-size: 1.15em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#allianceSelectionCentering {
+  position: absolute;
+  height: 100%;
+  top: 3em;
+  right: 4vw;
+  font-size: 1.8em;
+  width: 30vw;
+}
+.alliance-header-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6em;
+}
+.alliance-header-title {
+  font-size: 40px;
+  font-weight: 800;
+  color: #000;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+#allianceTimerBox {
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  height: 2.2em;
+}
+.alliance-timer-icon {
+  background-color: #59a0b5;
+  width: auto;
+  height: 100%;
+  padding: 0.1em;
+}
+#allianceSelectionTimer {
+  background-color: #fff;
+  font-size: 40px;
+  font-weight: 800;
+  padding: 0 0.8em;
+  color: #000;
+  place-content: center;
+}
+#allianceSelection {
+  display: table-cell;
+  vertical-align: middle;
+}
+#allianceSelectionTable {
+  /*border: 2px solid #222;*/
+  text-align: center;
+  font-family: "FuturaLT";
+  /*font-size: 2.6em;*/
+  border-collapse: separate; 
+  border-spacing: 0 15px;
+  height: 2.0em;
+  width: 100%;
+  table-layout: fixed;
+}
+#allianceSelectionTable tr {
+  background-color: #fff;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  height: 2.4em;
+  font-weight: 800;
+}
+/*#allianceSelectionTable tr:nth-child(even) {
+  background-color: #ccc;
+}*/
+.alliance-cell {
+  background-color: #59a0b5;
+  padding: 0px 20px;
+  font-family: "FuturaLT";
+  color: #000;
+  font-size: 1.2em;
+  width: 2.2em;
+}
+.selection-cell {
+  /*width: 3.1em;*/
+  color: #222;
+  font-size: 1.3em;
+}
+#lowerThird {
+  display: none;
+  position: absolute;
+  left: -1000px;
+  bottom: 70px;
+  background-color: #fff;
+  color: #222;
+  font-size: 30px;
+  width: 800px;
+  height: 87px;
+  background-color: #59a0b5;
+}
+#lowerThirdLogo {
+  padding: 12px 20px;
+  height: 100%;
+  float: left;
+  background-color: #fff;
+  margin-right: 12px;
+}
+#lowerThirdTop {
+  position: relative;
+  top: 10px;
+  display: none;
+  font-family: "FuturaLTBold";
+}
+#lowerThirdBottom {
+  display: none;
+  font-family: "FuturaLT";
+  font-size: 23px;
+  position: relative;
+  top: 5px;
+}
+#lowerThirdSingle {
+  display: none;
+  font-family: "FuturaLTBold";
+  line-height: 87px;
+}

@@ -3,6 +3,8 @@ let activeProgramState = { t: 'n', i: '', s: 'idle' };
 let activeCeremonyId = '';
 let tickerVisible = false;
 let watermarkVisible = true;
+let overlayPosition = 'bottom';
+let audiencePosition = 'bottom';
 let socket;
 
 function updateGlobalButton(button, visible, label) {
@@ -14,6 +16,9 @@ function updateGlobalButton(button, visible, label) {
 function updateGlobalControls() {
   updateGlobalButton(document.getElementById('tickerToggle'), tickerVisible, '跑馬燈');
   updateGlobalButton(document.getElementById('watermarkToggle'), watermarkVisible, '浮水印');
+  document.getElementById('overlayPositionToggle').textContent = `Overlay 位置：${overlayPosition === 'top' ? '上方' : '下方'}`;
+  document.getElementById('audiencePositionToggle').textContent =
+    `Audience 顯示位置：${audiencePosition === 'top' ? '上方' : '下方'}`;
 }
 
 function isProgramActive(type, id) {
@@ -104,6 +109,12 @@ function connectSocket() {
     } else if (message.e === 'k') {
       tickerVisible = message.v === 1;
       updateGlobalControls();
+    } else if (message.e === 'p' && (message.v === 'top' || message.v === 'bottom')) {
+      overlayPosition = message.v;
+      updateGlobalControls();
+    } else if (message.e === 'audience-position' && (message.v === 'top' || message.v === 'bottom')) {
+      audiencePosition = message.v;
+      updateGlobalControls();
     } else if (message.e === 'c') {
       activeCeremonyId = message.v === 1 ? message.i || '' : '';
       renderControls();
@@ -169,6 +180,18 @@ document.addEventListener('click', (event) => {
       if (sendMessage({ e: 'w', v: watermarkVisible ? 0 : 1 })) watermarkVisible = !watermarkVisible;
       updateGlobalControls();
       break;
+    case 'toggle-overlay-position': {
+      const nextPosition = overlayPosition === 'top' ? 'bottom' : 'top';
+      if (sendMessage({ e: 'p', v: nextPosition })) overlayPosition = nextPosition;
+      updateGlobalControls();
+      break;
+    }
+    case 'toggle-audience-position': {
+      const nextPosition = audiencePosition === 'top' ? 'bottom' : 'top';
+      if (sendMessage({ e: 'audience-position', v: nextPosition })) audiencePosition = nextPosition;
+      updateGlobalControls();
+      break;
+    }
     case 'toggle-program':
       toggleProgram(button.dataset.type, id);
       break;

@@ -9,9 +9,12 @@
 
   <div class="global-actions">
     <a class="button-board-link" href="/buttons">按鈕控制台</a>
+    <a class="button-board-link" href="/audience" target="_blank" rel="noopener">觀眾顯示</a>
     <button class="btn-hide global-action-button" data-action="emergency-clear">🚨 緊急清空畫面</button>
     <button id="tickerToggle" class="btn-show global-action-button" data-action="toggle-ticker">顯示跑馬燈</button>
     <button id="watermarkToggle" class="btn-hide global-action-button" data-action="toggle-watermark">隱藏浮水印</button>
+    <button id="overlayPositionToggle" class="btn-show global-action-button" data-action="toggle-overlay-position">Overlay 位置：下方</button>
+    <button id="audiencePositionToggle" class="btn-show global-action-button" data-action="toggle-audience-position">Audience 顯示位置：下方</button>
     <button class="btn-backup" type="button" data-action="save-now">儲存資料</button>
     <button class="btn-backup" type="button" data-action="save-backup">儲存備份</button>
     <span id="saveStatus" role="status" aria-live="polite"></span>
@@ -66,6 +69,27 @@
       <tbody></tbody>
     </table>
     <button class="btn-add" data-action="add-ceremony">+ 新增儀式名稱</button>
+  </div>
+
+  <div class="section">
+    <h2>Sponsor 投影片</h2>
+    <p>圖片請填寫 <code>public/assets/scoreboard/</code> 內的檔名；每張投影片可選擇圖片或文字。</p>
+    <table id="sponsorTable">
+      <thead>
+        <tr>
+          <th>類型</th>
+          <th>圖片檔名</th>
+          <th>文字第一行</th>
+          <th>文字第二行</th>
+          <th>副標題</th>
+          <th>秒數</th>
+          <th class="actions-heading">操作</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button class="btn-add" data-action="add-sponsor-image">+ 新增圖片投影片</button>
+    <button class="btn-add" data-action="add-sponsor-text">+ 新增文字投影片</button>
   </div>
 
   <div class="section">

@@ -4,6 +4,13 @@ const path = require('node:path');
 const os = require('node:os');
 const { timingSafeEqual, randomBytes } = require('node:crypto');
 const { WebSocketServer, WebSocket } = require('ws');
+const {
+  applyArenaMessage,
+  buildAudienceWebSocketUrl,
+  buildBracketWebSocketUrl,
+  buildMatchPlayWebSocketUrl,
+  createArenaState
+} = require('./arena-state');
 
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -31,16 +38,40 @@ loadEnvFile();
 const PORT = Number(process.env.PORT || 3000);
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || '';
 const AUTH_ENABLED = AUTH_PASSWORD.length > 0;
+const CHEESY_ARENA_PROTOCOL = process.env.CHEESY_ARENA_PROTOCOL || 'ws';
+const CHEESY_ARENA_DISPLAY_ID = process.env.CHEESY_ARENA_DISPLAY_ID || '';
 const AUTH_SESSION_TTL = 8 * 60 * 60 * 1000;
 const MAX_REQUEST_BYTES = 1024 * 1024;
 const MAX_TEAM_AVATAR_BYTES = 5 * 1024 * 1024;
+const MAX_RANKINGS_BYTES = 2 * 1024 * 1024;
+const MAX_BRACKET_SVG_BYTES = 5 * 1024 * 1024;
+const MAX_ARENA_RESOURCE_BYTES = 5 * 1024 * 1024;
 const MAX_TEAM_AVATAR_CACHE_BYTES = 32 * 1024 * 1024;
 const TEAM_AVATAR_CACHE_TTL = 10 * 60 * 1000;
 const MAX_TEAM_AVATAR_CACHE_ENTRIES = 256;
 const TEAM_AVATAR_REQUEST_TIMEOUT = 3000;
+const RANKINGS_REQUEST_TIMEOUT = 3000;
+const BRACKET_REQUEST_TIMEOUT = 3000;
+const ARENA_RESOURCE_REQUEST_TIMEOUT = 5000;
 const MAX_WS_CLIENTS = 16;
 const MAX_WS_MESSAGES_PER_SECOND = 20;
 const TEAM_AVATAR_SOURCES = ['10.0.100.5', 'localhost'];
+const AUDIENCE_MODES = new Set([
+  'allianceSelection',
+  'blank',
+  'bracket',
+  'intro',
+  'logo',
+  'logoLuma',
+  'match',
+  'score',
+  'sponsor',
+  'timeout'
+]);
+const ARENA_IMAGE_REWRITES = new Map([
+  ['/static/img/sponsors/bottom.png', '/assets/scoreboard/sponsor_bottom.png'],
+  ['/static/img/blinds-logo.png', '/assets/scoreboard/nks_logo.png']
+]);
 const teamAvatarCache = new Map();
 const teamAvatarRequests = new Map();
 const authSessions = new Map();
@@ -54,11 +85,77 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
   '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
   '.ttf': 'font/ttf',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon'
 };
+
+function normalizeSponsorSlides(sponsorSlides) {
+  if (sponsorSlides === undefined) return [];
+  if (!Array.isArray(sponsorSlides) || sponsorSlides.length > 100) {
+    const error = new Error('Sponsor slides must be a list with no more than 100 entries');
+    error.status = 400;
+    throw error;
+  }
+  return sponsorSlides.map((slide, index) => {
+    if (!slide || typeof slide !== 'object' || Array.isArray(slide)) {
+      const error = new Error(`Sponsor slide ${index + 1} is invalid`);
+      error.status = 400;
+      throw error;
+    }
+    if (!['image', 'text'].includes(slide.type)) {
+      const error = new Error(`Sponsor slide ${index + 1} must be an image or text`);
+      error.status = 400;
+      throw error;
+    }
+
+    const displayTimeSec = slide.displayTimeSec === undefined ? 10 : Number(slide.displayTimeSec);
+    if (!Number.isInteger(displayTimeSec) || displayTimeSec < 1 || displayTimeSec > 600) {
+      const error = new Error(`Sponsor slide ${index + 1} duration must be from 1 to 600 seconds`);
+      error.status = 400;
+      throw error;
+    }
+
+    let image = '';
+    if (slide.type === 'image') {
+      if (typeof slide.image !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.(?:png|jpe?g|webp|gif|svg)$/i.test(slide.image)) {
+        const error = new Error(`Sponsor slide ${index + 1} needs a local image filename`);
+        error.status = 400;
+        throw error;
+      }
+      const imagePath = path.join(PUBLIC_DIR, 'assets', 'scoreboard', slide.image);
+      if (!fs.existsSync(imagePath) || !fs.statSync(imagePath).isFile()) {
+        const error = new Error(`Sponsor image ${slide.image} was not found in public/assets/scoreboard`);
+        error.status = 400;
+        throw error;
+      }
+      image = slide.image;
+    }
+
+    const textFields = ['line1', 'line2', 'subtitle'];
+    const normalizedText = {};
+    for (const field of textFields) {
+      const value = slide[field] === undefined ? '' : slide[field];
+      if (typeof value !== 'string' || value.length > 500) {
+        const error = new Error(`Sponsor slide ${index + 1} ${field} must be text with at most 500 characters`);
+        error.status = 400;
+        throw error;
+      }
+      normalizedText[field] = value;
+    }
+
+    return {
+      id: typeof slide.id === 'string' && slide.id ? slide.id : `s_${index + 1}`,
+      type: slide.type,
+      image,
+      ...normalizedText,
+      displayTimeSec
+    };
+  });
+}
 
 function loadData() {
   try {
@@ -68,11 +165,18 @@ function loadData() {
       : data.ceremony && (data.ceremony.title || data.ceremony.subtitle)
         ? [{ id: 'ceremony_legacy', title: data.ceremony.title || '', subtitle: data.ceremony.subtitle || '' }]
         : [];
+    let sponsorSlides = [];
+    try {
+      sponsorSlides = normalizeSponsorSlides(data.sponsorSlides);
+    } catch (error) {
+      console.warn(`Failed to load Sponsor slides: ${error.message}`);
+    }
     const normalizedData = {
       ...data,
       guests: Array.isArray(data.guests) ? data.guests : [],
       awards: Array.isArray(data.awards) ? data.awards : [],
       tickerLines: Array.isArray(data.tickerLines) ? data.tickerLines : [],
+      sponsorSlides,
       ceremonies: ceremonies.filter((item) => item && typeof item === 'object').map((item, index) => ({
         id: typeof item.id === 'string' && item.id ? item.id : `ceremony_${index + 1}`,
         title: typeof item.title === 'string' ? item.title : '',
@@ -82,7 +186,8 @@ function loadData() {
     delete normalizedData.ceremony;
     return normalizedData;
   } catch (error) {
-    return { guests: [], awards: [], tickerLines: [], ceremonies: [] };
+    console.warn(`Failed to load data.json: ${error.message}`);
+    return { guests: [], awards: [], tickerLines: [], sponsorSlides: [], ceremonies: [] };
   }
 }
 
@@ -92,12 +197,30 @@ let tickerVisible = false;
 let watermarkVisible = true;
 let ceremonyVisible = false;
 let activeCeremonyId = '';
+let overlayPosition = null;
+let audiencePosition = 'bottom';
 let envelopeTimer = null;
+let arenaState = createArenaState();
+let arenaConnectionStatus = { status: 'not-configured' };
+let arenaReconnectTimer = null;
+let arenaReconnectDelay = 1000;
+let arenaWebSocketUrls = [];
+let arenaHostIndex = 0;
+let bracketReconnectTimer = null;
+let bracketReconnectDelay = 1000;
+let bracketWebSocketUrls = [];
+let bracketHostIndex = 0;
+let matchPlayReconnectTimer = null;
+let matchPlayReconnectDelay = 1000;
+let matchPlayWebSocketUrls = [];
+let matchPlayHostIndex = 0;
+let matchPlayWebSocket = null;
+let matchPlayConnectionStatus = { status: 'not-configured' };
 const clients = new Set();
 
 const webSockets = new WebSocketServer({
   noServer: true,
-  maxPayload: 512,
+  maxPayload: 5 * 1024 * 1024,
   perMessageDeflate: false
 });
 
@@ -110,6 +233,173 @@ function broadcast(message) {
   for (const client of clients) {
     if (client.readyState === WebSocket.OPEN) client.send(payload);
   }
+}
+
+function updateArenaConnectionStatus(status) {
+  arenaConnectionStatus = { status };
+  broadcast({ e: 'arena-connection', ...arenaConnectionStatus });
+}
+
+function scheduleArenaReconnect() {
+  if (arenaReconnectTimer || !arenaWebSocketUrls.length) return;
+  updateArenaConnectionStatus('reconnecting');
+  arenaReconnectTimer = setTimeout(() => {
+    arenaReconnectTimer = null;
+    connectCheesyArena();
+  }, arenaReconnectDelay);
+  arenaReconnectDelay = Math.min(arenaReconnectDelay * 2, 30000);
+}
+
+function connectCheesyArena() {
+  if (!arenaWebSocketUrls.length) return;
+  updateArenaConnectionStatus('connecting');
+  let upstream;
+  try {
+    upstream = new WebSocket(arenaWebSocketUrls[arenaHostIndex], { handshakeTimeout: 10000 });
+  } catch (error) {
+    console.error(`Unable to connect to Cheesy Arena: ${error.message}`);
+    arenaHostIndex = (arenaHostIndex + 1) % arenaWebSocketUrls.length;
+    scheduleArenaReconnect();
+    return;
+  }
+
+  upstream.on('open', () => {
+    arenaReconnectDelay = 1000;
+    updateArenaConnectionStatus('connected');
+    console.log('Connected to Cheesy Arena audience display.');
+  });
+  upstream.on('message', (rawMessage) => {
+    let message;
+    try {
+      message = JSON.parse(rawMessage.toString());
+    } catch (error) {
+      console.warn(`Ignoring invalid Cheesy Arena WebSocket JSON: ${error.message}`);
+      return;
+    }
+
+    const nextState = applyArenaMessage(arenaState, message);
+    if (!nextState) return;
+    arenaState = nextState;
+    broadcast({ e: 'arena-event', t: message.type, d: arenaState[message.type] });
+  });
+  upstream.on('error', (error) => {
+    console.warn(`Cheesy Arena WebSocket error: ${error.message}`);
+  });
+  upstream.on('close', () => {
+    console.warn('Cheesy Arena WebSocket disconnected.');
+    arenaHostIndex = (arenaHostIndex + 1) % arenaWebSocketUrls.length;
+    scheduleArenaReconnect();
+  });
+}
+
+function scheduleBracketReconnect() {
+  if (bracketReconnectTimer || !bracketWebSocketUrls.length) return;
+  bracketReconnectTimer = setTimeout(() => {
+    bracketReconnectTimer = null;
+    connectCheesyArenaBracket();
+  }, bracketReconnectDelay);
+  bracketReconnectDelay = Math.min(bracketReconnectDelay * 2, 30000);
+}
+
+function connectCheesyArenaBracket() {
+  if (!bracketWebSocketUrls.length) return;
+  let upstream;
+  try {
+    upstream = new WebSocket(bracketWebSocketUrls[bracketHostIndex], { handshakeTimeout: 10000 });
+  } catch (error) {
+    console.warn(`Unable to connect to Cheesy Arena bracket display: ${error.message}`);
+    bracketHostIndex = (bracketHostIndex + 1) % bracketWebSocketUrls.length;
+    scheduleBracketReconnect();
+    return;
+  }
+
+  upstream.on('open', () => {
+    bracketReconnectDelay = 1000;
+    console.log('Connected to Cheesy Arena bracket display.');
+  });
+  upstream.on('message', () => {
+    broadcast({ e: 'bracket-refresh' });
+  });
+  upstream.on('error', (error) => {
+    console.warn(`Cheesy Arena bracket WebSocket error: ${error.message}`);
+  });
+  upstream.on('close', () => {
+    console.warn('Cheesy Arena bracket WebSocket disconnected.');
+    bracketHostIndex = (bracketHostIndex + 1) % bracketWebSocketUrls.length;
+    scheduleBracketReconnect();
+  });
+}
+
+function updateMatchPlayConnectionStatus(status) {
+  matchPlayConnectionStatus = { status };
+  broadcast({ e: 'audience-matchplay-status', ...matchPlayConnectionStatus });
+}
+
+function scheduleMatchPlayReconnect() {
+  if (matchPlayReconnectTimer || !matchPlayWebSocketUrls.length) return;
+  updateMatchPlayConnectionStatus('reconnecting');
+  matchPlayReconnectTimer = setTimeout(() => {
+    matchPlayReconnectTimer = null;
+    connectCheesyArenaMatchPlay();
+  }, matchPlayReconnectDelay);
+  matchPlayReconnectDelay = Math.min(matchPlayReconnectDelay * 2, 30000);
+}
+
+function connectCheesyArenaMatchPlay() {
+  if (!matchPlayWebSocketUrls.length) return;
+  updateMatchPlayConnectionStatus('connecting');
+  let upstream;
+  try {
+    upstream = new WebSocket(matchPlayWebSocketUrls[matchPlayHostIndex], { handshakeTimeout: 10000 });
+  } catch (error) {
+    console.warn(`Unable to connect to Cheesy Arena Match Play: ${error.message}`);
+    matchPlayHostIndex = (matchPlayHostIndex + 1) % matchPlayWebSocketUrls.length;
+    scheduleMatchPlayReconnect();
+    return;
+  }
+
+  upstream.on('open', () => {
+    matchPlayWebSocket = upstream;
+    matchPlayReconnectDelay = 1000;
+    updateMatchPlayConnectionStatus('connected');
+    console.log('Connected to Cheesy Arena Match Play.');
+  });
+  upstream.on('error', (error) => {
+    console.warn(`Cheesy Arena Match Play WebSocket error: ${error.message}`);
+  });
+  upstream.on('close', () => {
+    if (matchPlayWebSocket === upstream) matchPlayWebSocket = null;
+    console.warn('Cheesy Arena Match Play WebSocket disconnected.');
+    matchPlayHostIndex = (matchPlayHostIndex + 1) % matchPlayWebSocketUrls.length;
+    scheduleMatchPlayReconnect();
+  });
+}
+
+try {
+  if (!CHEESY_ARENA_DISPLAY_ID.trim()) {
+    throw new Error('CHEESY_ARENA_DISPLAY_ID is required');
+  }
+  arenaWebSocketUrls = TEAM_AVATAR_SOURCES.map((host) => (
+    buildAudienceWebSocketUrl(CHEESY_ARENA_PROTOCOL, host, CHEESY_ARENA_DISPLAY_ID)
+  ));
+} catch (error) {
+  arenaConnectionStatus = { status: 'not-configured' };
+  console.warn(`Cheesy Arena connection is disabled: ${error.message}`);
+}
+try {
+  bracketWebSocketUrls = TEAM_AVATAR_SOURCES.map((host) => (
+    buildBracketWebSocketUrl(CHEESY_ARENA_PROTOCOL, host)
+  ));
+} catch (error) {
+  console.warn(`Cheesy Arena bracket WebSocket is disabled: ${error.message}`);
+}
+try {
+  matchPlayWebSocketUrls = TEAM_AVATAR_SOURCES.map((host) => (
+    buildMatchPlayWebSocketUrl(CHEESY_ARENA_PROTOCOL, host)
+  ));
+} catch (error) {
+  updateMatchPlayConnectionStatus('not-configured');
+  console.warn(`Cheesy Arena Match Play WebSocket is disabled: ${error.message}`);
 }
 
 function getItem(type, id) {
@@ -255,6 +545,193 @@ function fetchTeamAvatarFromHost(host, teamId) {
     request.on('timeout', () => request.destroy(new Error(`Avatar source ${host} timed out`)));
     request.on('error', reject);
   });
+}
+
+function fetchRankingsFromHost(host) {
+  return new Promise((resolve, reject) => {
+    const request = http.get({
+      hostname: host,
+      port: 8080,
+      path: '/api/rankings',
+      timeout: RANKINGS_REQUEST_TIMEOUT
+    }, (upstream) => {
+      const contentType = String(upstream.headers['content-type'] || '').split(';', 1)[0].toLowerCase();
+      if (upstream.statusCode !== 200 || contentType !== 'application/json') {
+        upstream.resume();
+        reject(new Error(`Rankings source ${host} returned an invalid response`));
+        return;
+      }
+
+      const chunks = [];
+      let size = 0;
+      upstream.on('data', (chunk) => {
+        size += chunk.length;
+        if (size > MAX_RANKINGS_BYTES) {
+          request.destroy(new Error('Rankings response exceeds the size limit'));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      upstream.on('end', () => {
+        try {
+          const rankings = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+          if (!rankings || typeof rankings !== 'object' || !Array.isArray(rankings.Rankings)) {
+            throw new Error('Rankings response has an invalid shape');
+          }
+          resolve(rankings);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      upstream.on('error', reject);
+    });
+
+    request.on('timeout', () => request.destroy(new Error(`Rankings source ${host} timed out`)));
+    request.on('error', reject);
+  });
+}
+
+async function loadRankings() {
+  let lastError;
+  for (const host of TEAM_AVATAR_SOURCES) {
+    try {
+      return await fetchRankingsFromHost(host);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('No rankings source is available');
+}
+
+function fetchBracketSvgFromHost(host, activeMatch) {
+  return new Promise((resolve, reject) => {
+    const request = http.get({
+      hostname: host,
+      port: 8080,
+      path: `/api/bracket/svg?activeMatch=${activeMatch}`,
+      timeout: BRACKET_REQUEST_TIMEOUT
+    }, (upstream) => {
+      const contentType = String(upstream.headers['content-type'] || '').split(';', 1)[0].toLowerCase();
+      if (upstream.statusCode !== 200 || !/^(?:image\/svg\+xml|application\/xml|text\/xml|text\/plain)$/.test(contentType)) {
+        upstream.resume();
+        reject(new Error(`Bracket source ${host} returned an invalid response`));
+        return;
+      }
+
+      const chunks = [];
+      let size = 0;
+      upstream.on('data', (chunk) => {
+        size += chunk.length;
+        if (size > MAX_BRACKET_SVG_BYTES) {
+          request.destroy(new Error('Bracket SVG exceeds the size limit'));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      upstream.on('end', () => {
+        const body = Buffer.concat(chunks);
+        if (!/<svg(?:\s|>)/i.test(body.toString('utf8'))) {
+          reject(new Error(`Bracket source ${host} returned invalid SVG`));
+          return;
+        }
+        resolve(body);
+      });
+      upstream.on('error', reject);
+    });
+
+    request.on('timeout', () => request.destroy(new Error(`Bracket source ${host} timed out`)));
+    request.on('error', reject);
+  });
+}
+
+async function loadBracketSvg(activeMatch) {
+  let lastError;
+  for (const host of TEAM_AVATAR_SOURCES) {
+    try {
+      return await fetchBracketSvgFromHost(host, activeMatch);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('No bracket source is available');
+}
+
+function fetchArenaResourceFromHost(host, resourcePath, contentTypePattern) {
+  return new Promise((resolve, reject) => {
+    const request = http.get({
+      hostname: host,
+      port: 8080,
+      path: resourcePath,
+      timeout: ARENA_RESOURCE_REQUEST_TIMEOUT
+    }, (upstream) => {
+      const contentType = String(upstream.headers['content-type'] || '').split(';', 1)[0].toLowerCase();
+      if (upstream.statusCode !== 200 || !contentTypePattern.test(contentType)) {
+        upstream.resume();
+        reject(new Error(`Arena resource source ${host} returned an invalid response`));
+        return;
+      }
+
+      const declaredLength = Number(upstream.headers['content-length'] || 0);
+      if (declaredLength > MAX_ARENA_RESOURCE_BYTES) {
+        upstream.resume();
+        reject(new Error('Arena resource exceeds the size limit'));
+        return;
+      }
+
+      const chunks = [];
+      let size = 0;
+      upstream.on('data', (chunk) => {
+        size += chunk.length;
+        if (size > MAX_ARENA_RESOURCE_BYTES) {
+          request.destroy(new Error('Arena resource exceeds the size limit'));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      upstream.on('end', () => resolve({
+        body: Buffer.concat(chunks),
+        contentType
+      }));
+      upstream.on('error', reject);
+    });
+
+    request.on('timeout', () => request.destroy(new Error(`Arena resource source ${host} timed out`)));
+    request.on('error', reject);
+  });
+}
+
+async function loadArenaResource(resourcePath, contentTypePattern) {
+  let lastError;
+  for (const host of TEAM_AVATAR_SOURCES) {
+    try {
+      return await fetchArenaResourceFromHost(host, resourcePath, contentTypePattern);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('No Arena resource source is available');
+}
+
+function rewriteArenaImageUrls(body) {
+  return Buffer.from(body.toString('utf8').replace(
+    /\/static\/img\/([A-Za-z0-9_./-]+)/g,
+    (originalPath, imagePath) => {
+      const knownPath = ARENA_IMAGE_REWRITES.get(originalPath);
+      if (knownPath) return knownPath;
+      const filename = path.posix.basename(imagePath);
+      return `/assets/scoreboard/${/^[A-Za-z0-9_.-]+$/.test(filename) ? filename : 'nks_logo.png'}`;
+    }
+  ));
+}
+
+function loadSponsorSlides() {
+  return data.sponsorSlides.map((slide) => ({
+    Image: slide.type === 'image' ? `/assets/scoreboard/${slide.image}` : '',
+    DisplayTimeSec: slide.displayTimeSec,
+    Line1: slide.line1,
+    Line2: slide.line2,
+    Subtitle: slide.subtitle
+  }));
 }
 
 async function loadTeamAvatar(teamId) {
@@ -479,6 +956,7 @@ async function handleRequest(request, response) {
         guests: Array.isArray(nextData.guests) ? nextData.guests : [],
         awards: Array.isArray(nextData.awards) ? nextData.awards : [],
         tickerLines: Array.isArray(nextData.tickerLines) ? nextData.tickerLines : [],
+        sponsorSlides: normalizeSponsorSlides(nextData.sponsorSlides),
         ceremonies: Array.isArray(nextData.ceremonies) ? nextData.ceremonies
           .filter((item) => item && typeof item === 'object')
           .map((item, index) => ({
@@ -526,6 +1004,76 @@ async function handleRequest(request, response) {
     return;
   }
   const teamAvatarRoute = pathname.match(/^\/api\/teams\/([A-Za-z0-9_-]+)\/avatar$/);
+  if (request.method === 'GET' && pathname === '/api/rankings') {
+    try {
+      jsonResponse(response, 200, await loadRankings());
+    } catch (error) {
+      console.warn(`Failed to load rankings: ${error.message}`);
+      jsonResponse(response, 502, { error: 'Rankings are unavailable' });
+    }
+    return;
+  }
+  if (request.method === 'GET' && pathname === '/api/sponsor_slides') {
+    jsonResponse(response, 200, loadSponsorSlides());
+    return;
+  }
+  if (request.method === 'GET' && pathname === '/api/bracket/svg') {
+    try {
+      const activeMatch = url.searchParams.get('activeMatch') || 'current';
+      if (!['current', 'saved'].includes(activeMatch)) {
+        jsonResponse(response, 400, { error: 'Invalid activeMatch value' });
+        return;
+      }
+      const svg = await loadBracketSvg(activeMatch);
+      response.writeHead(200, {
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Content-Length': svg.length,
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      response.end(svg);
+    } catch (error) {
+      console.warn(`Failed to load bracket SVG: ${error.message}`);
+      jsonResponse(response, 502, { error: 'Bracket is unavailable' });
+    }
+    return;
+  }
+  if (['GET', 'HEAD'].includes(request.method) && pathname.startsWith('/static/')) {
+    const resourceMatch = pathname.match(/^\/static\/(css|js|fonts|audio)\/[A-Za-z0-9_./-]+$/);
+    if (!resourceMatch || pathname.split('/').some((part) => part === '.' || part === '..')) {
+      response.writeHead(404, { 'Cache-Control': 'no-store' });
+      response.end('Not found');
+      return;
+    }
+
+    const resourceKind = resourceMatch[1] === 'css' && /\/fonts\//.test(pathname)
+      ? 'fonts'
+      : resourceMatch[1];
+    const contentTypePatterns = {
+      css: /^text\/css$/,
+      js: /^(?:application|text)\/(?:javascript|ecmascript)$/,
+      fonts: /^(?:font\/|application\/(?:font|vnd\.ms-fontobject))/,
+      audio: /^audio\//
+    };
+    try {
+      const resourcePath = `${pathname}${url.search}`;
+      const resource = await loadArenaResource(resourcePath, contentTypePatterns[resourceKind]);
+      const body = ['css', 'js'].includes(resourceKind)
+        ? rewriteArenaImageUrls(resource.body)
+        : resource.body;
+      response.writeHead(200, {
+        'Content-Type': resource.contentType,
+        'Content-Length': body.length,
+        'Cache-Control': 'public, max-age=300',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      response.end(request.method === 'HEAD' ? undefined : body);
+    } catch (error) {
+      console.warn(`Failed to load Arena resource ${pathname}: ${error.message}`);
+      jsonResponse(response, 502, { error: 'Arena resource is unavailable' });
+    }
+    return;
+  }
   if (request.method === 'GET' && teamAvatarRoute) {
     try {
       const avatar = await loadTeamAvatar(teamAvatarRoute[1]);
@@ -558,6 +1106,9 @@ async function handleRequest(request, response) {
     '/buttons': 'buttons.html',
     '/login': 'login.html',
     '/overlay': 'overlay.html',
+    '/audience': 'audience.html',
+    '/rankings': 'rankings.html',
+    '/bracket': 'bracket.html',
     '/mc': 'mc.html'
   };
   const relativePath = routeFiles[pathname] || pathname.replace(/^\/+/, '');
@@ -626,7 +1177,12 @@ webSockets.on('connection', (client, request) => {
   send(client, { e: 's', ...currentState });
   send(client, { e: 'k', v: tickerVisible ? 1 : 0 });
   send(client, { e: 'w', v: watermarkVisible ? 1 : 0 });
+  send(client, { e: 'p', v: overlayPosition });
+  send(client, { e: 'audience-position', v: audiencePosition });
   send(client, { e: 'c', v: ceremonyVisible ? 1 : 0, i: activeCeremonyId });
+  send(client, { e: 'arena-snapshot', d: arenaState });
+  send(client, { e: 'arena-connection', ...arenaConnectionStatus });
+  send(client, { e: 'audience-matchplay-status', ...matchPlayConnectionStatus });
   client.on('message', (rawMessage) => {
     if (AUTH_ENABLED && !isAuthenticated(request)) return;
     const now = Date.now();
@@ -643,6 +1199,26 @@ webSockets.on('connection', (client, request) => {
     try {
       message = JSON.parse(rawMessage.toString());
     } catch (error) {
+      return;
+    }
+    if (!message || typeof message !== 'object' || Array.isArray(message)) return;
+    if (message.e === 'audience-set-mode') {
+      if (!AUDIENCE_MODES.has(message.mode)) {
+        send(client, { e: 'audience-command-error', message: 'Unsupported audience display mode.' });
+        return;
+      }
+      if (!matchPlayWebSocket || matchPlayWebSocket.readyState !== WebSocket.OPEN) {
+        send(client, { e: 'audience-command-error', message: 'Cheesy Arena Match Play is not connected.' });
+        return;
+      }
+      matchPlayWebSocket.send(JSON.stringify({ type: 'setAudienceDisplay', data: message.mode }), (error) => {
+        if (error) {
+          console.warn(`Failed to send audience display mode: ${error.message}`);
+          send(client, { e: 'audience-command-error', message: 'Failed to send the audience display mode.' });
+          return;
+        }
+        send(client, { e: 'audience-command-accepted', mode: message.mode });
+      });
       return;
     }
     if (message.e === 't') {
@@ -667,6 +1243,16 @@ webSockets.on('connection', (client, request) => {
     if (message.e === 'w') {
       watermarkVisible = message.v === 1;
       broadcast({ e: 'w', v: watermarkVisible ? 1 : 0 });
+      return;
+    }
+    if (message.e === 'p' && (message.v === 'top' || message.v === 'bottom')) {
+      overlayPosition = message.v;
+      broadcast({ e: 'p', v: overlayPosition });
+      return;
+    }
+    if (message.e === 'audience-position' && (message.v === 'top' || message.v === 'bottom')) {
+      audiencePosition = message.v;
+      broadcast({ e: 'audience-position', v: audiencePosition });
       return;
     }
     if (message.e === 'c' && message.v === 0) {
@@ -715,5 +1301,11 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Control: http://${localIP}:${PORT}/ctrl`);
   console.log(`Button control: http://${localIP}:${PORT}/buttons`);
   console.log(`Overlay: http://${localIP}:${PORT}/overlay`);
+  console.log(`Audience: http://${localIP}:${PORT}/audience`);
+  console.log(`Rankings: http://${localIP}:${PORT}/rankings`);
+  console.log(`Bracket: http://${localIP}:${PORT}/bracket`);
   console.log(`MC: http://${localIP}:${PORT}/mc`);
+  connectCheesyArena();
+  connectCheesyArenaBracket();
+  connectCheesyArenaMatchPlay();
 });

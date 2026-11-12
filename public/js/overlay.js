@@ -10,9 +10,12 @@ const wrapper = document.getElementById('lowerThirdWrapper');
     const ceremonyRibbon = document.getElementById('ceremonyRibbon');
     const ceremonyTitle = document.getElementById('ceremonyTitle');
     const ceremonySubtitle = document.getElementById('ceremonySubtitle');
-    const displayWhere = new URLSearchParams(window.location.search).get('where');
-    const tickerWhere = displayWhere === 'up' ? 'up' : 'down';
-    if (displayWhere === 'top') watermark.classList.add('where-top');
+    const overlayParams = new URLSearchParams(window.location.search);
+    const initialOverlayPosition = overlayParams.has('top')
+      || overlayParams.get('position') === 'top'
+      || ['up', 'top'].includes(overlayParams.get('where'))
+      ? 'top'
+      : 'bottom';
 
     let autoTransitionTimer = null;
     let envelopeRevealTimer = null;
@@ -21,9 +24,11 @@ const wrapper = document.getElementById('lowerThirdWrapper');
     let data = { guests: [], awards: [], tickerLines: [] };
     let compactState = { t: 'n', i: '', s: 'idle' };
     let tickerVisible = false;
+    let overlayPosition = initialOverlayPosition;
     let ceremonyVisible = false;
     let activeCeremonyId = '';
     const teamAvatarPreloads = new Map();
+    document.body.classList.toggle('position-top', overlayPosition === 'top');
 
     function preloadTeamAvatar(teamId) {
       if (teamAvatarPreloads.has(teamId)) return teamAvatarPreloads.get(teamId);
@@ -81,6 +86,13 @@ const wrapper = document.getElementById('lowerThirdWrapper');
           updateTicker({ visible: tickerVisible, lines: data.tickerLines });
         }
         if (message.e === 'w') watermark.classList.toggle('is-visible', message.v === 1);
+        if (message.e === 'p') {
+          if (message.v === 'top' || message.v === 'bottom') {
+            setOverlayPosition(message.v);
+          } else if (message.v === null && initialOverlayPosition === 'top') {
+            socket.send(JSON.stringify({ e: 'p', v: initialOverlayPosition }));
+          }
+        }
         if (message.e === 'c') {
           ceremonyVisible = message.v === 1;
           activeCeremonyId = ceremonyVisible ? message.i || '' : '';
@@ -113,7 +125,7 @@ const wrapper = document.getElementById('lowerThirdWrapper');
       .catch(() => {});
 
     function updateTicker(ticker) {
-      tickerBar.className = `where-${tickerWhere}`;
+      tickerBar.className = overlayPosition === 'top' ? 'where-up' : 'where-down';
       const lines = Array.isArray(ticker.lines) ? ticker.lines.filter((line) => String(line).trim()) : [];
 
       if (ticker.visible && lines.length) {
@@ -144,6 +156,12 @@ const wrapper = document.getElementById('lowerThirdWrapper');
         tickerTrack.style.animationPlayState = 'paused';
         tickerBar.classList.remove('is-visible');
       }
+    }
+
+    function setOverlayPosition(position) {
+      overlayPosition = position;
+      document.body.classList.toggle('position-top', position === 'top');
+      updateTicker({ visible: tickerVisible, lines: data.tickerLines });
     }
 
     function updateLowerThird(content, signature) {

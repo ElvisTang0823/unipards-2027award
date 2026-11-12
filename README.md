@@ -15,6 +15,7 @@
 ```dotenv
 AUTH_PASSWORD=replace-with-a-long-random-password
 EXT_API_TOKEN=replace-with-a-long-random-token
+CHEESY_ARENA_DISPLAY_ID=replace-with-a-valid-audience-display-id
 ```
 
 `AUTH_PASSWORD` 可留空；空值代表不啟用頁面密碼，非空才會保護 `/ctrl`、`/buttons` 與 `/mc`。`EXT_API_TOKEN` 未設定時外部觸發 API 會拒絕請求。設定後啟動伺服器：
@@ -22,6 +23,17 @@ EXT_API_TOKEN=replace-with-a-long-random-token
 ```powershell
 node server.js
 ```
+
+Audience 顯示頁由伺服器轉送 Cheesy Arena audience display WebSocket 的比賽資料，並透過官方 Match Play WebSocket 回傳顯示模式。伺服器依序嘗試 `10.0.100.5:8080`、`localhost:8080`；主機不需在 `.env` 重複設定。請設定：
+
+- `CHEESY_ARENA_DISPLAY_ID`：Arena 中有效的 audience display ID。
+- `CHEESY_ARENA_PROTOCOL`：選填，`ws` 或 `wss`，預設為 `ws`。
+
+Audience 顯示頁為 `http://localhost:3000/audience`。可在控制台或按鈕控制台切換 Audience 版面上／下位置，使用 `?reversed=true` 互換紅藍區塊，或用 `?mode=score` 要求 Arena 顯示指定模式；模式值支援 `allianceSelection`、`blank`、`bracket`、`intro`、`logo`、`logoLuma`、`match`、`score`、`sponsor`、`timeout`。圖片由本機 `public/assets/scoreboard/` 載入；Sponsor 圖片／文字投影片可在 `/ctrl` 編輯，圖片使用該目錄內的檔名。Audience 的 shared 樣式與輔助程式已整合在本機 `audience.css`、`audience.js`，不載入 Cheesy Arena 的 shared 檔案。連線中斷會自動重連。
+
+隊伍排名頁面為 `http://localhost:3000/rankings`，每 10 秒透過伺服器取得 Cheesy Arena `/api/rankings` 資料；伺服器依序嘗試 `10.0.100.5:8080`、`localhost:8080`，也使用相同來源取得隊伍頭像。
+
+賽程表頁面為 `http://localhost:3000/bracket`，透過伺服器取得 Cheesy Arena `/api/bracket/svg?activeMatch=current` 的 SVG 賽程圖；頁面同時連接 bracket WebSocket，收到訊息時即更新賽程，並每 10 秒輪詢作為備援。伺服器依序嘗試 `10.0.100.5:8080`、`localhost:8080`。
 
 不需使用外部觸發 API 時，可不設定 `EXT_API_TOKEN`。若也不需頁面密碼，將 `.env` 中 `AUTH_PASSWORD` 留空即可：
 
@@ -34,10 +46,15 @@ node server.js
 - 控制台：`http://localhost:3000/ctrl`
 - 按鈕控制台（純按鈕操作）：`http://localhost:3000/buttons`
 - OBS 下方 overlay：`http://localhost:3000/overlay?where=down`
+- Audience 顯示：`http://localhost:3000/audience`
+- 隊伍排名：`http://localhost:3000/rankings`
+- 賽程表：`http://localhost:3000/bracket`
 - OBS 上方 overlay：`http://localhost:3000/overlay?where=up`
 - 司儀專頁：`http://localhost:3000/mc`
 
 伺服器啟動後會顯示區網網址，可供同一網路的設備使用。
+
+控制台與按鈕控制台可同步切換 Overlay 上下位置；Overlay 的字卡、儀式綵帶、浮水印與跑馬燈會一起移動。`?top`、`?position=top` 或 `?where=up` 可設定頁面初始顯示於上方，`?where=down` 則設定於下方；跑馬燈會依目前 Overlay 位置顯示。
 
 當 `AUTH_PASSWORD` 非空時，`/ctrl`、`/buttons`、`/mc` 及其 HTML 直連都由伺服器端 session 驗證保護，登入有效期為 8 小時；隱藏或修改瀏覽器頁面元素不能略過驗證。控制台資料寫入與 WebSocket 控制訊息也需要有效登入。一般 HTTP 連線不會加密密碼或 Cookie，若在不可信任的網路使用，請先部署於 HTTPS 反向代理後方。
 

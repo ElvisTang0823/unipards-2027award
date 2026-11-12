@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#003a4d">
+  <title>隊伍排名 | NKS Award</title>
+  <link rel="stylesheet" href="/css/rankings.css">
+</head>
+<body>
+  <main class="rankings-page">
+    <section class="standings" aria-label="隊伍排名">
+      <table class="rankings-table rankings-header">
+        <thead>
+          <tr>
+            <th scope="col">Rank</th>
+            <th scope="col">Team</th>
+            <th scope="col">RP</th>
+            <th scope="col">Match</th>
+            <th scope="col">Auto Fuel</th>
+            <th scope="col">Tower</th>
+            <th scope="col">W-L-T</th>
+            <th scope="col">DQ</th>
+            <th scope="col">Played</th>
+          </tr>
+        </thead>
+      </table>
+      <div class="rankings-container">
+        <div id="scroller" class="rankings-scroller">
+          <table id="rankings1" class="rankings-table rankings-body" aria-label="隊伍排名"></table>
+          <table id="rankings2" class="rankings-table rankings-body" aria-hidden="true"></table>
+        </div>
+      </div>
+      <p id="rankingsStatus" class="rankings-status" role="status" aria-live="polite">正在載入排名…</p>
+    </section>
+  </main>
+  <script src="/js/rankings.js" defer></script>
+</body>
+</html>

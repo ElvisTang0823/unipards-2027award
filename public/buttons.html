@@ -12,6 +12,7 @@
     <h1>導播控制</h1>
     <div class="toolbar-actions">
       <span id="connectionStatus" class="connection-status" role="status" aria-label="連線中…" aria-live="polite"></span>
+      <a class="button-link" href="/audience" target="_blank" rel="noopener">觀眾顯示</a>
       <a class="button-link" href="/ctrl">設定</a>
     </div>
   </header>
@@ -20,6 +21,8 @@
       <button class="control-button btn-danger" type="button" data-action="emergency-clear">清空</button>
       <button id="tickerToggle" class="control-button btn-show" type="button" data-action="toggle-ticker">跑馬燈 開</button>
       <button id="watermarkToggle" class="control-button btn-hide" type="button" data-action="toggle-watermark">浮水印 關</button>
+      <button id="overlayPositionToggle" class="control-button btn-show" type="button" data-action="toggle-overlay-position">Overlay 位置：下方</button>
+      <button id="audiencePositionToggle" class="control-button btn-show" type="button" data-action="toggle-audience-position">Audience 顯示位置：下方</button>
     </section>
     <p id="pageStatus" class="page-status" role="status" aria-live="polite"></p>
     <section aria-labelledby="guestHeading">

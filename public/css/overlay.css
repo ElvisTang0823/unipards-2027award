@@ -70,6 +70,10 @@
       transition: opacity 350ms ease, transform 450ms cubic-bezier(.2,.8,.2,1);
     }
 
+    body.position-top #lowerThirdWrapper {
+      top: 108px;
+    }
+
     #lowerThirdWrapper.is-visible {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
@@ -261,6 +265,10 @@
       box-shadow: 0 0 32px rgba(212, 175, 55, 0.28);
     }
 
+    body.position-top #envelopeContainer.is-preview {
+      top: 108px;
+    }
+
     #envelopeContainer.is-visible.is-preview {
       transform: translate(-50%, 0) scale(1);
     }
@@ -369,7 +377,7 @@
       transition: opacity 350ms ease, visibility 0s;
     }
 
-    #watermark.where-top {
+    body.position-top #watermark {
       top: 50px;
       bottom: auto;
     }
@@ -390,6 +398,11 @@
       visibility: hidden;
       transform: translateX(-24px);
       transition: opacity 350ms ease, transform 450ms cubic-bezier(.2,.8,.2,1), visibility 0s linear 450ms;
+    }
+
+    body.position-top #ceremonyRibbon {
+      top: 50px;
+      bottom: auto;
     }
 
     #ceremonyRibbon.is-visible {
