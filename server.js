@@ -126,9 +126,9 @@ function normalizeSponsorSlides(sponsorSlides) {
         error.status = 400;
         throw error;
       }
-      const imagePath = path.join(PUBLIC_DIR, 'assets', 'scoreboard', slide.image);
+      const imagePath = path.join(PUBLIC_DIR, 'assets', 'sponsor', slide.image);
       if (!fs.existsSync(imagePath) || !fs.statSync(imagePath).isFile()) {
-        const error = new Error(`Sponsor image ${slide.image} was not found in public/assets/scoreboard`);
+        const error = new Error(`Sponsor image ${slide.image} was not found in public/assets/sponsor`);
         error.status = 400;
         throw error;
       }
@@ -726,7 +726,7 @@ function rewriteArenaImageUrls(body) {
 
 function loadSponsorSlides() {
   return data.sponsorSlides.map((slide) => ({
-    Image: slide.type === 'image' ? `/assets/scoreboard/${slide.image}` : '',
+    Image: slide.type === 'image' ? `/assets/sponsor/${slide.image}` : '',
     DisplayTimeSec: slide.displayTimeSec,
     Line1: slide.line1,
     Line2: slide.line2,
@@ -920,6 +920,8 @@ async function handleRequest(request, response) {
     ['/ctrl.html', '/ctrl'],
     ['/buttons', '/buttons'],
     ['/buttons.html', '/buttons'],
+    ['/audience-controls', '/audience-controls'],
+    ['/audience-controls.html', '/audience-controls'],
     ['/mc', '/mc'],
     ['/mc.html', '/mc']
   ]);
@@ -1104,6 +1106,7 @@ async function handleRequest(request, response) {
     '/': 'ctrl.html',
     '/ctrl': 'ctrl.html',
     '/buttons': 'buttons.html',
+    '/audience-controls': 'audience-controls.html',
     '/login': 'login.html',
     '/overlay': 'overlay.html',
     '/audience': 'audience.html',
@@ -1292,14 +1295,15 @@ function getLocalIP() {
 server.listen(PORT, '0.0.0.0', () => {
   const localIP = getLocalIP();
   if (AUTH_ENABLED) {
-    console.log('Password protection is enabled for /ctrl, /buttons and /mc.');
+    console.log('Password protection is enabled for /ctrl, /buttons, /audience-controls and /mc.');
   } else {
-    console.log('AUTH_PASSWORD is empty; /ctrl, /buttons and /mc are open without login.');
+    console.log('AUTH_PASSWORD is empty; /ctrl, /buttons, /audience-controls and /mc are open without login.');
   }
   warmTeamAvatarCache(data.awards);
   console.log(`FRC award relay ready at http://${localIP}:${PORT}`);
   console.log(`Control: http://${localIP}:${PORT}/ctrl`);
   console.log(`Button control: http://${localIP}:${PORT}/buttons`);
+  console.log(`Audience controls: http://${localIP}:${PORT}/audience-controls`);
   console.log(`Overlay: http://${localIP}:${PORT}/overlay`);
   console.log(`Audience: http://${localIP}:${PORT}/audience`);
   console.log(`Rankings: http://${localIP}:${PORT}/rankings`);

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#121418">
+  <title>Audience 控制 | NKS Award</title>
+  <link rel="stylesheet" href="/css/buttons.css">
+</head>
+<body>
+  <header class="toolbar">
+    <h1>Audience 控制</h1>
+    <div class="toolbar-actions">
+      <span id="connectionStatus" class="connection-status" role="status" aria-label="連線中…" aria-live="polite"></span>
+      <span id="matchPlayStatus" class="button-link" role="status" aria-live="polite">Cheesy Arena：連線中…</span>
+      <a class="button-link" href="/audience" target="_blank" rel="noopener">觀眾顯示</a>
+      <a class="button-link" href="/buttons">按鈕控制</a>
+      <a class="button-link" href="/ctrl">設定</a>
+    </div>
+  </header>
+  <main>
+    <section aria-labelledby="audienceModeHeading">
+      <h2 id="audienceModeHeading">顯示內容</h2>
+      <div id="audienceModeControls" class="control-grid"></div>
+    </section>
+    <p id="pageStatus" class="page-status" role="status" aria-live="polite"></p>
+  </main>
+  <script src="/js/audience-controls.js" defer></script>
+</body>
+</html>

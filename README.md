@@ -4,7 +4,7 @@
 
 專案已附 Node.js 執行檔。將整個專案資料夾複製到另一台電腦，雙擊 `Start NKS Award.bat` 即可啟動；目標電腦不需安裝 Node.js、npm 或其他插件。請勿只複製 `server.js`，`node.exe`、`node_modules/`、`data.json` 與 `public/` 都必須保留。
 
-如需限制存取，將 `.env.example` 複製為 `.env` 並設定只有工作人員知道的 `AUTH_PASSWORD`；控制台、按鈕控制台與司儀頁會要求此密碼。若 `AUTH_PASSWORD` 留空或未設定，則不啟用密碼，以上頁面可直接瀏覽。`.env` 已加入 Git 忽略清單，請勿提交密碼。
+如需限制存取，將 `.env.example` 複製為 `.env` 並設定只有工作人員知道的 `AUTH_PASSWORD`；控制台、按鈕控制台、Audience 控制頁與司儀頁會要求此密碼。若 `AUTH_PASSWORD` 留空或未設定，則不啟用密碼，以上頁面可直接瀏覽。`.env` 已加入 Git 忽略清單，請勿提交密碼。
 
 啟動後可在本機開啟 `http://localhost:3000/ctrl`。若要使用外部觸發 API，請在 `.env` 設定 `EXT_API_TOKEN`。
 
@@ -29,7 +29,7 @@ Audience 顯示頁由伺服器轉送 Cheesy Arena audience display WebSocket 的
 - `CHEESY_ARENA_DISPLAY_ID`：Arena 中有效的 audience display ID。
 - `CHEESY_ARENA_PROTOCOL`：選填，`ws` 或 `wss`，預設為 `ws`。
 
-Audience 顯示頁為 `http://localhost:3000/audience`。可在控制台或按鈕控制台切換 Audience 版面上／下位置，使用 `?reversed=true` 互換紅藍區塊，或用 `?mode=score` 要求 Arena 顯示指定模式；模式值支援 `allianceSelection`、`blank`、`bracket`、`intro`、`logo`、`logoLuma`、`match`、`score`、`sponsor`、`timeout`。圖片由本機 `public/assets/scoreboard/` 載入；Sponsor 圖片／文字投影片可在 `/ctrl` 編輯，圖片使用該目錄內的檔名。Audience 的 shared 樣式與輔助程式已整合在本機 `audience.css`、`audience.js`，不載入 Cheesy Arena 的 shared 檔案。連線中斷會自動重連。
+Audience 顯示頁為 `http://localhost:3000/audience`。可在控制台或按鈕控制台切換 Audience 版面上／下位置，或於專用的 `http://localhost:3000/audience-controls` 頁切換顯示模式。模式切換由伺服器透過 Cheesy Arena 官方 Match Play WebSocket 回傳；Arena 並沒有對應的 `/api/matchplay` HTTP POST 路由。支援模式為 `allianceSelection`、`blank`、`bracket`、`intro`、`logo`、`logoLuma`、`match`、`score`、`sponsor`、`timeout`。Audience 頁可用 `?reversed=true` 互換紅藍區塊，或用 `?mode=score` 指定模式。Audience 遊戲圖片由本機 `public/assets/scoreboard/` 載入；Sponsor 投影片與底部橫幅圖片放在 `public/assets/sponsor/`，可在 `/ctrl` 設定投影片檔名。Sponsor 文字投影片也可在 `/ctrl` 編輯。Audience 的 shared 樣式與輔助程式已整合在本機 `audience.css`、`audience.js`，不載入 Cheesy Arena 的 shared 檔案。連線中斷會自動重連。
 
 隊伍排名頁面為 `http://localhost:3000/rankings`，每 10 秒透過伺服器取得 Cheesy Arena `/api/rankings` 資料；伺服器依序嘗試 `10.0.100.5:8080`、`localhost:8080`，也使用相同來源取得隊伍頭像。
 
@@ -45,6 +45,7 @@ node server.js
 
 - 控制台：`http://localhost:3000/ctrl`
 - 按鈕控制台（純按鈕操作）：`http://localhost:3000/buttons`
+- Audience 控制頁：`http://localhost:3000/audience-controls`
 - OBS 下方 overlay：`http://localhost:3000/overlay?where=down`
 - Audience 顯示：`http://localhost:3000/audience`
 - 隊伍排名：`http://localhost:3000/rankings`
@@ -56,7 +57,7 @@ node server.js
 
 控制台與按鈕控制台可同步切換 Overlay 上下位置；Overlay 的字卡、儀式綵帶、浮水印與跑馬燈會一起移動。`?top`、`?position=top` 或 `?where=up` 可設定頁面初始顯示於上方，`?where=down` 則設定於下方；跑馬燈會依目前 Overlay 位置顯示。
 
-當 `AUTH_PASSWORD` 非空時，`/ctrl`、`/buttons`、`/mc` 及其 HTML 直連都由伺服器端 session 驗證保護，登入有效期為 8 小時；隱藏或修改瀏覽器頁面元素不能略過驗證。控制台資料寫入與 WebSocket 控制訊息也需要有效登入。一般 HTTP 連線不會加密密碼或 Cookie，若在不可信任的網路使用，請先部署於 HTTPS 反向代理後方。
+當 `AUTH_PASSWORD` 非空時，`/ctrl`、`/buttons`、`/audience-controls`、`/mc` 及其 HTML 直連都由伺服器端 session 驗證保護，登入有效期為 8 小時；隱藏或修改瀏覽器頁面元素不能略過驗證。控制台資料寫入與 WebSocket 控制訊息也需要有效登入。一般 HTTP 連線不會加密密碼或 Cookie，若在不可信任的網路使用，請先部署於 HTTPS 反向代理後方。
 
 伺服器使用 Node.js 原生 HTTP 與 `ws` WebSocket relay；控制台、Overlay 與 MC 以原生 WebSocket 連線，不載入 Socket.IO、GSAP 或 Pixi CDN。字卡觸發只傳送類型、資料 ID 與階段碼，Overlay/MC 以啟動時讀取的名單還原顯示內容。
 

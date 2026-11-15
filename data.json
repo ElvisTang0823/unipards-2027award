@@ -37,7 +37,35 @@
     "抽獎了各位",
     "哈哈哈哈哈哈哈哈哈哈哈哈www"
   ],
-  "sponsorSlides": [],
+  "sponsorSlides": [
+    {
+      "id": "s_1794700460696",
+      "type": "text",
+      "image": "",
+      "line1": "123456",
+      "line2": "789",
+      "subtitle": "0000",
+      "displayTimeSec": 2
+    },
+    {
+      "id": "s_1794700470965",
+      "type": "text",
+      "image": "",
+      "line1": "333",
+      "line2": "666",
+      "subtitle": "",
+      "displayTimeSec": 2
+    },
+    {
+      "id": "s_1794700732802",
+      "type": "image",
+      "image": "sponsor.png",
+      "line1": "",
+      "line2": "",
+      "subtitle": "",
+      "displayTimeSec": 10
+    }
+  ],
   "ceremonies": [
     {
       "id": "c_1793243761665",
