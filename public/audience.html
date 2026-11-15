@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>NKS Award Audience</title>
+    <link rel="preload" href="/static/css/fonts/futura-lt.otf" as="font" crossorigin="anonymous">
+    <link rel="preload" href="/static/css/fonts/futura-lt-bold.otf" as="font" crossorigin="anonymous">
     <link rel="stylesheet" href="/static/css/lib/bootstrap.min.css"/>
     <link rel="stylesheet" href="/css/audience.css"/>
   </head>
@@ -256,19 +258,6 @@
       <div id="lowerThirdBottom"></div>
       <div id="lowerThirdSingle"></div>
     </div>
-    <template id="allianceSelectionTemplate">
-      <table id="allianceSelectionTable">
-        {{#each alliances}}
-        <tr>
-          <td class="alliance-cell">{{Index}}</td>
-          {{#each this.TeamIds}}
-          <td class="selection-cell">{{#if this}}{{this}}{{/if}}</td>
-          {{/each}}
-        </tr>
-        {{/each}}
-      </table>
-    </template>
-
     <template id="sponsorImageTemplate">
       <div class="carousel-item{{#if First}} active{{/if}}" data-bs-interval="{{DisplayTimeMs}}">
       <div class="sponsor-image-container">

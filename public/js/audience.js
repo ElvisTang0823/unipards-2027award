@@ -13,9 +13,9 @@ let currentScreen = "blank";
 let redSide;
 let blueSide;
 let currentMatch;
+let pendingMatchTimeData = null;
 let overlayCenteringHideParams;
 let overlayCenteringShowParams;
-const allianceSelectionTemplate = Handlebars.compile($("#allianceSelectionTemplate").html());
 const sponsorImageTemplate = Handlebars.compile($("#sponsorImageTemplate").html());
 const sponsorTextTemplate = Handlebars.compile($("#sponsorTextTemplate").html());
 const isRecord = function (value) {
@@ -193,6 +193,12 @@ const isPlayoffMatch = function (match) {
   return Boolean(match && (match.Type === 3 || String(match.Type || "").toLowerCase() === "playoff"));
 };
 
+const getMatchName = function (match) {
+  return [match.LongName, match.NameDetail]
+    .filter((value) => typeof value === "string" && value.trim())
+    .join(" – ");
+};
+
 // Constants for overlay positioning. The CSS is the source of truth for the values that represent initial state.
 const overlayCenteringTopUp = -130;
 const overlayCenteringBottomDown = parseFloat($("#overlayCentering").css("bottom"));
@@ -332,16 +338,40 @@ const handleMatchLoad = function (data) {
     $("#playoffSeriesStatus").hide();
   }
   $(".timeout-match-info").toggle(playoff);
-  const matchName = [match.LongName, match.NameDetail]
-    .filter((value) => typeof value === "string" && value.trim())
-    .join(" – ");
+  const matchName = getMatchName(match);
   $("#matchName").text(matchName);
   $("#Timeout-Name").text(matchName);
-  $("#finalMatchName").text(matchName || "\u00a0");
 };
 
 // Handles a websocket message to update the match time countdown.
+const hasMatchTimingFor = function (data) {
+  if (typeof matchTiming === "undefined" || !isRecord(matchTiming)) return false;
+  const requiredFields = {
+    0: ["AutoDurationSec"],
+    1: ["AutoDurationSec"],
+    2: ["AutoDurationSec"],
+    4: [
+      "AutoDurationSec",
+      "TransitionShiftDurationSec",
+      "ShiftDurationSec",
+      "EndgameDurationSec",
+      "PauseDurationSec"
+    ],
+    6: ["TimeoutDurationSec"]
+  }[data.MatchState] || [];
+  return requiredFields.every(function (field) {
+    const value = matchTiming[field];
+    return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+  });
+};
+
 const handleMatchTime = function (data) {
+  if (!isRecord(data)) return;
+  if (!hasMatchTimingFor(data)) {
+    pendingMatchTimeData = data;
+    return;
+  }
+  pendingMatchTimeData = null;
   translateMatchTime(data, function (matchState, matchStateText, countdownSec) {
     $("body").attr("data-match-state", matchState);
     $("#matchTime").text(matchState === "POST_MATCH" ? "0:00" : getCountdownString(countdownSec));
@@ -492,11 +522,7 @@ const handleScorePosted = function (data) {
   console.log("BlueWinRP: " + $BlueWinRP);
   $imgs2.slice(0, $BlueWinRP).addClass('BlueGetRP').removeClass('NoGetRP');
   $imgs2.slice($BlueWinRP).addClass('NoGetRP').removeClass('BlueGetRP');
-  let matchName = data.Match.LongName;
-  if (data.Match.NameDetail !== "") {
-    matchName += " &ndash; " + data.Match.NameDetail;
-  }
-  $("#finalMatchName").html(matchName);
+  $("#finalMatchName").text(getMatchName(data.Match) || "\u00a0");
 
   // Reload the bracket to reflect any changes.
   $("#bracketSvg").attr("src", "/api/bracket/svg?activeMatch=saved&v=" + new Date().getTime());
@@ -524,14 +550,19 @@ const handlePlaySound = function (sound) {
 
 // Handles a websocket message to update the alliance selection screen.
 const handleAllianceSelection = function (data) {
-  const alliances = data.Alliances;
+  const alliances = Array.isArray(data.Alliances) ? data.Alliances.filter(isRecord) : [];
   const rankedTeams = data.RankedTeams;
   if (alliances && alliances.length > 0) {
-    const numColumns = alliances[0].TeamIds.length + 1;
-    $.each(alliances, function (k, v) {
-      v.Index = k + 1;
+    const table = $("<table>", {id: "allianceSelectionTable"});
+    alliances.forEach(function (alliance, index) {
+      const row = $("<tr>");
+      $("<td>", {class: "alliance-cell"}).text(index + 1).appendTo(row);
+      (Array.isArray(alliance.TeamIds) ? alliance.TeamIds : []).forEach(function (teamId) {
+        $("<td>", {class: "selection-cell"}).text(teamId || "").appendTo(row);
+      });
+      row.appendTo(table);
     });
-    $("#allianceSelection").html(allianceSelectionTemplate({alliances: alliances, numColumns: numColumns}));
+    $("#allianceSelection").empty().append(table);
   }
   if (rankedTeams) {
     const captainSlotsRemaining = (alliances || [])
@@ -609,6 +640,16 @@ const transitionBlankToBracket = function (callback) {
       transitionLogoToBracket(callback);
     }, 50);
   });
+};
+
+const handleMatchTimingMessage = function (data) {
+  if (!isRecord(data)) return;
+  handleMatchTiming(data);
+  if (pendingMatchTimeData && hasMatchTimingFor(pendingMatchTimeData)) {
+    const pending = pendingMatchTimeData;
+    pendingMatchTimeData = null;
+    handleMatchTime(pending);
+  }
 };
 
 const transitionBlankToIntro = function (callback) {
@@ -1066,7 +1107,7 @@ $(function () {
       handleMatchTime(event.data);
     },
     matchTiming: function (event) {
-      handleMatchTiming(event.data);
+      handleMatchTimingMessage(event.data);
     },
     playSound: function (event) {
       handlePlaySound(event.data);
