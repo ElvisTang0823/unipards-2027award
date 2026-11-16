@@ -1015,6 +1015,22 @@ async function handleRequest(request, response) {
     }
     return;
   }
+  if (request.method === 'GET' && pathname === '/api/pit-display/queueing/matches') {
+    try {
+      const queueingMatches = await loadArenaResource('/displays/queueing/match_load', /^text\/html$/);
+      response.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Length': queueingMatches.body.length,
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      response.end(queueingMatches.body);
+    } catch (error) {
+      console.warn(`Failed to load queueing matches: ${error.message}`);
+      jsonResponse(response, 502, { error: 'Queueing matches are unavailable' });
+    }
+    return;
+  }
   if (request.method === 'GET' && pathname === '/api/sponsor_slides') {
     jsonResponse(response, 200, loadSponsorSlides());
     return;
@@ -1102,6 +1118,12 @@ async function handleRequest(request, response) {
     return;
   }
 
+  if (/^\/pit-display\/(?:practice|qualification|playoff)\.html$/.test(pathname)) {
+    response.writeHead(404, { 'Cache-Control': 'no-store' });
+    response.end('Not found');
+    return;
+  }
+
   const routeFiles = {
     '/': 'ctrl.html',
     '/ctrl': 'ctrl.html',
@@ -1110,11 +1132,13 @@ async function handleRequest(request, response) {
     '/login': 'login.html',
     '/overlay': 'overlay.html',
     '/audience': 'audience.html',
-    '/rankings': 'rankings.html',
-    '/bracket': 'bracket.html',
+    '/pit-display': 'pit-display/index.html',
     '/mc': 'mc.html'
   };
-  const relativePath = routeFiles[pathname] || pathname.replace(/^\/+/, '');
+  const pitDisplayView = pathname === '/pit-display' ? url.searchParams.get('view') : '';
+  const relativePath = ['practice', 'qualification', 'playoff'].includes(pitDisplayView)
+    ? `pit-display/${pitDisplayView}.html`
+    : routeFiles[pathname] || pathname.replace(/^\/+/, '');
   const filePath = path.resolve(PUBLIC_DIR, relativePath);
   if (!filePath.startsWith(`${PUBLIC_DIR}${path.sep}`) && filePath !== path.join(PUBLIC_DIR, 'ctrl.html')) {
     response.writeHead(403);
@@ -1306,8 +1330,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Audience controls: http://${localIP}:${PORT}/audience-controls`);
   console.log(`Overlay: http://${localIP}:${PORT}/overlay`);
   console.log(`Audience: http://${localIP}:${PORT}/audience`);
-  console.log(`Rankings: http://${localIP}:${PORT}/rankings`);
-  console.log(`Bracket: http://${localIP}:${PORT}/bracket`);
+  console.log(`Pit display: http://${localIP}:${PORT}/pit-display`);
   console.log(`MC: http://${localIP}:${PORT}/mc`);
   connectCheesyArena();
   connectCheesyArenaBracket();

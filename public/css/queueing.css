@@ -1,0 +1,124 @@
+html {
+  height: 100%;
+  cursor: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  overflow: hidden;
+}
+
+body {
+  height: 100%;
+  background: linear-gradient(to bottom, #003375 1%, #3c679d 100%);
+  background-repeat: no-repeat;
+}
+
+#header {
+  padding: 10px 0;
+  font-size: 40px;
+  font-family: "FuturaLTBold", sans-serif;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.card {
+  background-color: #ccc;
+  border: 1px solid #333;
+  padding: 10px;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+#matchState,
+#matchTime {
+  font-size: 25px;
+  color: #666;
+}
+
+#matchTime {
+  font-weight: bold;
+}
+
+.red-teams,
+.blue-teams {
+  font-family: "FuturaLTBold", sans-serif;
+  line-height: 48px;
+  font-size: 42px;
+}
+
+.red-teams {
+  color: #ff4444;
+}
+
+.blue-teams {
+  color: #2080ff;
+}
+
+.avatars {
+  line-height: 48px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+#earlyLateMessage {
+  position: absolute;
+  bottom: 40px;
+  font-size: 25px;
+  font-family: "FuturaLTBold", sans-serif;
+  color: #fff;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.alliance-container {
+  display: flex;
+  height: 144px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.alliance-tall {
+  height: 192px;
+}
+
+.alliance-number {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #fc0;
+  color: #333;
+  border-radius: 50%;
+  border: 1px solid #333;
+  font-size: 25px;
+  font-weight: bold;
+}
+
+#queueStatus,
+#connectionStatus {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  color: #fff;
+  font: 20px "FuturaLTBold", sans-serif;
+  text-align: center;
+  text-shadow: 0 1px 3px #003375;
+}
+
+#queueStatus {
+  top: 100px;
+}
+
+#connectionStatus {
+  top: 135px;
+}
+
+#queueStatus[hidden],
+#connectionStatus[hidden] {
+  display: none;
+}

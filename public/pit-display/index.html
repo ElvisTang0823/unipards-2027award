@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#003375">
+    <title>Pit Display | NKS Award</title>
+    <link rel="stylesheet" href="/css/pit-display.css">
+  </head>
+  <body>
+    <iframe class="pit-display-frame is-active" data-display="practice" src="/pit-display?view=practice" title="Practice queue"></iframe>
+    <iframe class="pit-display-frame" data-display="qualification" src="/pit-display?view=qualification" title="Qualification queue" aria-hidden="true" tabindex="-1"></iframe>
+    <iframe class="pit-display-frame" data-display="playoff" src="/pit-display?view=playoff" title="Playoff queue" aria-hidden="true" tabindex="-1"></iframe>
+    <p id="pitDisplayStatus" role="status" aria-live="polite"></p>
+    <script src="/js/pit-display.js"></script>
+  </body>
+</html>

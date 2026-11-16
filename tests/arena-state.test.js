@@ -92,6 +92,15 @@ test('stores audience display mode and score posting events', () => {
   assert.equal(withScore.scorePosted.RedScoreSummary.Score, 42);
 });
 
+test('stores queueing display event status', () => {
+  const state = applyArenaMessage(createArenaState(), {
+    type: 'eventStatus',
+    data: { EarlyLateMessage: 'Matches are running on time' }
+  });
+
+  assert.equal(state.eventStatus.EarlyLateMessage, 'Matches are running on time');
+});
+
 test('rejects missing configuration and non-WebSocket protocols', () => {
   assert.throws(() => buildAudienceWebSocketUrl('http', '10.0.100.5', 'display-1'), /CHEESY_ARENA_PROTOCOL/);
   assert.throws(() => buildAudienceWebSocketUrl('ws', '', 'display-1'), /host is required/);

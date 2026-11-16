@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#003375">
+    <title>Match Queue | NKS Award</title>
+    <link rel="preload" href="/static/css/fonts/futura-lt-bold.otf" as="font" crossorigin="anonymous">
+    <link rel="preload" href="/static/css/fonts/futura-lt.otf" as="font" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/css/lib/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/css/cheesy-arena.css">
+    <link rel="stylesheet" href="/static/css/queueing_display.css">
+    <link rel="stylesheet" href="/css/queueing.css">
+  </head>
+  <body>
+    <header id="header" class="row justify-content-center">
+      <div class="col-lg-10">Match Queue</div>
+    </header>
+    <main id="matches" aria-live="polite"></main>
+    <div class="row justify-content-center">
+      <div id="earlyLateMessage" class="col-lg-10"></div>
+    </div>
+    <p id="queueStatus" role="status" aria-live="polite">正在載入排隊場次…</p>
+    <p id="connectionStatus" role="status" aria-live="polite">正在連線至 Cheesy Arena…</p>
+    <script src="/static/js/match_timing.js"></script>
+    <script src="/js/queueing.js"></script>
+  </body>
+</html>
