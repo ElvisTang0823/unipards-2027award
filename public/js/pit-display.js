@@ -7,6 +7,7 @@ const pitDisplayFrames = new Map(
 let currentPitDisplay = "practice";
 let matchLoadDisplay = "practice";
 let allianceSelectionActive = false;
+let audienceDisplayMode = null;
 let pitDisplaySocket;
 let reconnectDelay = 1000;
 
@@ -44,10 +45,22 @@ function setPitDisplayForMatchLoad(data) {
 
 function setPitDisplayForAllianceSelection(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) return;
+  if (audienceDisplayMode !== null) {
+    allianceSelectionActive = audienceDisplayMode === "allianceSelection";
+    showPitDisplay(allianceSelectionActive ? "allianceSelection" : matchLoadDisplay);
+    return;
+  }
   allianceSelectionActive = data.ShowTimer === true
     || (Array.isArray(data.Alliances) && data.Alliances.length > 0)
     || (Array.isArray(data.RankedTeams) && data.RankedTeams.length > 0);
-  showPitDisplay(allianceSelectionActive ? "playoff" : matchLoadDisplay);
+  showPitDisplay(allianceSelectionActive ? "allianceSelection" : matchLoadDisplay);
+}
+
+function setPitDisplayForAudienceDisplayMode(mode) {
+  if (typeof mode !== "string") return;
+  audienceDisplayMode = mode;
+  allianceSelectionActive = mode === "allianceSelection";
+  showPitDisplay(allianceSelectionActive ? "allianceSelection" : matchLoadDisplay);
 }
 
 function handlePitDisplayMessage(message) {
@@ -55,9 +68,15 @@ function handlePitDisplayMessage(message) {
     setPitDisplayForMatchLoad(message.d);
   } else if (message.e === "arena-event" && message.t === "allianceSelection") {
     setPitDisplayForAllianceSelection(message.d);
+  } else if (message.e === "arena-event" && message.t === "audienceDisplayMode") {
+    setPitDisplayForAudienceDisplayMode(message.d);
   } else if (message.e === "arena-snapshot" && message.d) {
     if (message.d.matchLoad) setPitDisplayForMatchLoad(message.d.matchLoad);
-    if (message.d.allianceSelection) setPitDisplayForAllianceSelection(message.d.allianceSelection);
+    if (typeof message.d.audienceDisplayMode === "string") {
+      setPitDisplayForAudienceDisplayMode(message.d.audienceDisplayMode);
+    } else if (message.d.allianceSelection) {
+      setPitDisplayForAllianceSelection(message.d.allianceSelection);
+    }
   } else if (message.e === "arena-connection") {
     pitDisplayStatus.textContent = message.status === "connected"
       ? ""

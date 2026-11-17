@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#003375">
+    <title>Alliance Selection | NKS Award</title>
+    <link rel="preload" href="/static/css/fonts/futura-lt-bold.otf" as="font" crossorigin="anonymous">
+    <link rel="preload" href="/static/css/fonts/futura-lt.otf" as="font" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/css/lib/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/alliance-selection.css">
+  </head>
+  <body>
+    <div id="allianceSelectionBackground">
+      <img class="alliance-selection-bg" src="/assets/scoreboard/alliance_selection_background.png" alt="">
+    </div>
+    <div id="allianceSelectionCentering">
+      <div class="alliance-header-row">
+        <span class="alliance-header-title">Alliances</span>
+        <div id="allianceTimerBox">
+          <img class="alliance-timer-icon" src="/assets/scoreboard/timer.png" alt="">
+          <div id="allianceSelectionTimer">0:00</div>
+        </div>
+      </div>
+      <div id="allianceSelection"></div>
+    </div>
+    <div id="allianceRankingsCentering">
+      <div class="rankings-header-title">Available Teams</div>
+      <div id="allianceRankings"></div>
+    </div>
+    <p id="allianceSelectionStatus" role="status" aria-live="polite"></p>
+    <script src="/js/alliance-selection.js"></script>
+  </body>
+</html>

@@ -1,0 +1,198 @@
+@font-face {
+  font-family: FuturaLT;
+  src: url("/static/css/fonts/futura-lt.otf") format("opentype");
+}
+
+@font-face {
+  font-family: FuturaLTBold;
+  src: url("/static/css/fonts/futura-lt-bold.otf") format("opentype");
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  cursor: none;
+  user-select: none;
+  background: transparent;
+  color: #000;
+  font-family: FuturaLT, Arial, sans-serif;
+}
+
+html {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+}
+
+#allianceSelectionBackground {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.alliance-selection-bg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#allianceRankingsCentering {
+  position: absolute;
+  left: 4vw;
+  top: 5em;
+}
+
+.rankings-header-title {
+  margin-bottom: 0.5em;
+  color: #000;
+  font-size: 40px;
+  font-weight: 800;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#allianceRankings {
+  display: grid;
+  max-width: 50vw;
+  grid-template-rows: repeat(4, auto);
+  grid-auto-flow: column;
+  gap: 0.25em;
+  overflow: hidden;
+  font-family: FuturaLT, Arial, sans-serif;
+  font-size: 2em;
+}
+
+.unpicked {
+  display: flex;
+  justify-content: start;
+  height: 1.7em;
+  margin-right: 0.2em;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  font-weight: 800;
+}
+
+.unpicked-rank {
+  display: flex;
+  width: 2.2em;
+  align-items: center;
+  justify-content: center;
+  background-color: #5fb1d5;
+  color: #fff;
+  font-size: 0.9em;
+}
+
+.unpicked-rank[data-captain="true"] {
+  background-color: #003a4d;
+}
+
+.unpicked-team {
+  display: flex;
+  width: 4em;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  color: #000;
+  font-size: 1.15em;
+}
+
+#allianceSelectionCentering {
+  position: absolute;
+  top: 3em;
+  right: 5.8vw;
+  width: 30vw;
+  height: 100%;
+  font-size: 1.8em;
+}
+
+.alliance-header-row {
+  display: flex;
+  min-height: 2.2em;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6em;
+}
+
+.alliance-header-title {
+  color: #000;
+  font-size: 40px;
+  font-weight: 800;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#allianceTimerBox {
+  display: none;
+  height: 2.2em;
+  flex-direction: row;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+#allianceTimerBox.is-visible {
+  display: flex;
+}
+
+.alliance-timer-icon {
+  width: auto;
+  height: 100%;
+  padding: 0.1em;
+  background-color: #59a0b5;
+}
+
+#allianceSelectionTimer {
+  display: grid;
+  place-content: center;
+  padding: 0 0.8em;
+  background-color: #fff;
+  color: #000;
+  font-size: 40px;
+  font-weight: 800;
+}
+
+#allianceSelection {
+  display: table-cell;
+  vertical-align: middle;
+}
+
+#allianceSelectionTable {
+  width: 100%;
+  height: 2em;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0 15px;
+  text-align: center;
+  font-family: FuturaLT, Arial, sans-serif;
+}
+
+#allianceSelectionTable tr {
+  height: 2.4em;
+  background-color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  font-weight: 800;
+}
+
+.alliance-cell {
+  width: 2.2em;
+  padding: 0 20px;
+  background-color: #59a0b5;
+  color: #000;
+  font-family: FuturaLT, Arial, sans-serif;
+  font-size: 1.2em;
+}
+
+.selection-cell {
+  color: #222;
+  font-size: 1.3em;
+}
+
+#allianceSelectionStatus {
+  position: absolute;
+  right: 4vw;
+  bottom: 2vh;
+  margin: 0;
+  color: #000;
+  font: 20px FuturaLTBold, Arial, sans-serif;
+}
