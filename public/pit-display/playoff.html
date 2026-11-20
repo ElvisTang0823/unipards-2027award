@@ -9,8 +9,14 @@
 </head>
 <body>
   <main class="bracket-display">
-    <img id="bracketImage" class="bracket-image" alt="比賽賽程表" hidden>
-    <p id="bracketStatus" class="bracket-status" role="status" aria-live="polite">正在載入賽程表…</p>
+    <section id="bracketSlide" class="display-slide is-active" aria-hidden="false">
+      <img id="bracketImage" class="bracket-image" alt="比賽賽程表" hidden>
+      <p id="bracketStatus" class="bracket-status" role="status" aria-live="polite">正在載入賽程表…</p>
+    </section>
+    <section id="alliancesSlide" class="display-slide alliance-slide" aria-hidden="true">
+      <h1 class="alliance-title">Alliances</h1>
+      <div id="allianceList" class="alliance-list"></div>
+    </section>
   </main>
   <script src="/js/bracket.js" defer></script>
 </body>

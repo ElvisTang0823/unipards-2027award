@@ -1015,6 +1015,18 @@ async function handleRequest(request, response) {
     }
     return;
   }
+  if (request.method === 'GET' && pathname === '/api/alliances') {
+    try {
+      const resource = await loadArenaResource('/api/alliances', /^application\/json$/);
+      const alliances = JSON.parse(resource.body.toString('utf8'));
+      if (!Array.isArray(alliances)) throw new Error('Alliance response is not a list');
+      jsonResponse(response, 200, alliances);
+    } catch (error) {
+      console.warn(`Failed to load alliances: ${error.message}`);
+      jsonResponse(response, 502, { error: 'Alliance data is unavailable' });
+    }
+    return;
+  }
   if (request.method === 'GET' && pathname === '/api/pit-display/queueing/matches') {
     try {
       const queueingMatches = await loadArenaResource('/displays/queueing/match_load', /^text\/html$/);

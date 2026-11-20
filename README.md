@@ -31,7 +31,7 @@ Audience 顯示頁由伺服器轉送 Cheesy Arena audience display WebSocket 的
 
 Audience 顯示頁為 `http://localhost:3000/audience`。可在控制台或按鈕控制台切換 Audience 版面上／下位置，或於專用的 `http://localhost:3000/audience-controls` 頁切換顯示模式。模式切換由伺服器透過 Cheesy Arena 官方 Match Play WebSocket 回傳；Arena 並沒有對應的 `/api/matchplay` HTTP POST 路由。支援模式為 `allianceSelection`、`blank`、`bracket`、`intro`、`logo`、`logoLuma`、`match`、`score`、`sponsor`、`timeout`。Audience 頁可用 `?reversed=true` 互換紅藍區塊，或用 `?mode=score` 指定模式。Audience 遊戲圖片由本機 `public/assets/scoreboard/` 載入；Sponsor 投影片與底部橫幅圖片放在 `public/assets/sponsor/`，可在 `/ctrl` 設定投影片檔名。Sponsor 文字投影片也可在 `/ctrl` 編輯。Audience 的 shared 樣式與輔助程式已整合在本機 `audience.css`、`audience.js`，不載入 Cheesy Arena 的 shared 檔案。連線中斷會自動重連。
 
-Pit Display 頁面為 `http://localhost:3000/pit-display`。它依 Cheesy Arena `matchLoad.Match.Type` 自動顯示 practice、qualification 或 playoff 頁面；聯盟選擇進行時顯示從 Audience 聯盟選擇版面抽出的 `/pit-display/alliance_selection.html`，結束後回到目前比賽類型的頁面。來源檔案保留在 `public/pit-display/`，並於背景預載所有頁面及其資料，減少切換等待；主頁網址維持 `/pit-display`。場次與比賽狀態透過伺服器的 Cheesy Arena WebSocket relay 更新，伺服器依序連線 `10.0.100.5:8080`、`localhost:8080`，需設定有效的 `CHEESY_ARENA_DISPLAY_ID`。
+Pit Display 頁面為 `http://localhost:3000/pit-display`。它依 Cheesy Arena `matchLoad.Match.Type` 自動顯示 practice、qualification 或 playoff 頁面；playoff 頁每 10 秒輪播賽程表及聯盟編組，首次切換至 playoff 時透過 `/api/alliances` 取得一次聯盟資料。聯盟選擇進行時顯示從 Audience 聯盟選擇版面抽出的 `/pit-display/alliance_selection.html`，結束後回到目前比賽類型的頁面。來源檔案保留在 `public/pit-display/`，並於背景預載所有頁面及其資料，減少切換等待；主頁網址維持 `/pit-display`。場次與比賽狀態透過伺服器的 Cheesy Arena WebSocket relay 更新，伺服器依序連線 `10.0.100.5:8080`、`localhost:8080`，需設定有效的 `CHEESY_ARENA_DISPLAY_ID`。
 
 不需使用外部觸發 API 時，可不設定 `EXT_API_TOKEN`。若也不需頁面密碼，將 `.env` 中 `AUTH_PASSWORD` 留空即可：
 

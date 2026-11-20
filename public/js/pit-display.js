@@ -10,6 +10,23 @@ let allianceSelectionActive = false;
 let audienceDisplayMode = null;
 let pitDisplaySocket;
 let reconnectDelay = 1000;
+let playoffFrameReady = false;
+let playoffAllianceRequestSent = false;
+
+const playoffFrame = pitDisplayFrames.get("playoff");
+if (playoffFrame) {
+  playoffFrameReady = Boolean(playoffFrame.contentDocument && playoffFrame.contentDocument.readyState === "complete");
+  playoffFrame.addEventListener("load", function () {
+    playoffFrameReady = true;
+    requestPlayoffAllianceData();
+  });
+}
+
+function requestPlayoffAllianceData() {
+  if (!playoffFrameReady || playoffAllianceRequestSent || currentPitDisplay !== "playoff") return;
+  playoffFrame.contentWindow.postMessage({ type: "load-alliance-data" }, window.location.origin);
+  playoffAllianceRequestSent = true;
+}
 
 function showPitDisplay(display) {
   const selectedFrame = pitDisplayFrames.get(display);
@@ -21,6 +38,7 @@ function showPitDisplay(display) {
     frame.tabIndex = active ? 0 : -1;
   });
   currentPitDisplay = display;
+  if (display === "playoff") requestPlayoffAllianceData();
 }
 
 function getPitDisplayForMatch(match) {

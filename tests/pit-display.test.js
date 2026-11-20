@@ -17,11 +17,19 @@ function createPitDisplayHarness() {
       active: display === 'practice',
       attributes: {},
       tabIndex: display === 'practice' ? 0 : -1,
+      contentDocument: { readyState: 'complete' },
+      contentWindow: {
+        messages: [],
+        postMessage(message, origin) {
+          this.messages.push({ message, origin });
+        }
+      },
       classList: {
         toggle(name, active) {
           if (name === 'is-active') frame.active = active;
         }
       },
+      addEventListener() {},
       setAttribute(name, value) {
         frame.attributes[name] = value;
       }
@@ -43,7 +51,7 @@ function createPitDisplayHarness() {
       }
     },
     window: {
-      location: { protocol: 'http:', host: 'localhost' },
+      location: { protocol: 'http:', host: 'localhost', origin: 'http://localhost' },
       setTimeout() {}
     },
     WebSocket: StubWebSocket,
@@ -82,6 +90,9 @@ test('returns to the loaded playoff bracket when alliance-selection mode ends', 
     d: { ShowTimer: true, Alliances: [{ TeamIds: [1, 2, 3] }] }
   });
   assert.equal(frames.get('playoff').active, true);
+  assert.equal(frames.get('playoff').contentWindow.messages.length, 1);
+  assert.equal(frames.get('playoff').contentWindow.messages[0].message.type, 'load-alliance-data');
+  assert.equal(frames.get('playoff').contentWindow.messages[0].origin, 'http://localhost');
 });
 
 test('uses the display mode in the Arena snapshot over stale alliance data', () => {
